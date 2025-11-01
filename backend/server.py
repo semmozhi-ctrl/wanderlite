@@ -5,7 +5,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Generator
 import uuid
 from datetime import datetime, timezone
 from passlib.context import CryptContext
@@ -94,10 +94,43 @@ class TripModel(Base):
     budget = Column(String(20), nullable=False)
     currency = Column(String(10), nullable=False)
     total_cost = Column(Float, default=0)
+    start_date = Column(DateTime(timezone=True), nullable=True)
+    end_date = Column(DateTime(timezone=True), nullable=True)
+    travelers = Column(Integer, nullable=True)
     itinerary_json = Column(Text, nullable=False, default="[]")
     images_json = Column(Text, nullable=False, default="[]")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), nullable=True)
+
+class BookingModel(Base):
+    __tablename__ = "bookings"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    trip_id = Column(String(36), ForeignKey("trips.id"), index=True, nullable=True)
+    destination = Column(String(255), nullable=False)
+    start_date = Column(DateTime(timezone=True), nullable=True)
+    end_date = Column(DateTime(timezone=True), nullable=True)
+    travelers = Column(Integer, default=1)
+    package_type = Column(String(50), nullable=True)
+    hotel_name = Column(String(255), nullable=True)
+    flight_number = Column(String(50), nullable=True)
+    total_price = Column(Float, default=0)
+    currency = Column(String(10), default="INR")
+    booking_ref = Column(String(50), unique=True, index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class GalleryPostModel(Base):
+    __tablename__ = "gallery_posts"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    image_url = Column(String(500), nullable=False)
+    caption = Column(Text, nullable=True)
+    location = Column(String(255), nullable=True)
+    tags_json = Column(Text, nullable=False, default="[]")
+    likes = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class StatusCheckModel(Base):
@@ -108,7 +141,7 @@ class StatusCheckModel(Base):
     timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
-def get_db() -> Session:
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
@@ -206,7 +239,10 @@ class Trip(BaseModel):
     days: int
     budget: str
     currency: str
-    total_cost: float
+    total_cost: float = 0
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    travelers: Optional[int] = None
     itinerary: List[dict]
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     images: List[str] = []
@@ -216,7 +252,46 @@ class TripCreate(BaseModel):
     days: int
     budget: str
     currency: str
+    total_cost: Optional[float] = 0
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    travelers: Optional[int] = None
     itinerary: List[dict]
+
+class Booking(BaseModel):
+    id: str
+    destination: str
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    travelers: int
+    package_type: Optional[str] = None
+    hotel_name: Optional[str] = None
+    flight_number: Optional[str] = None
+    total_price: float
+    currency: str
+    booking_ref: str
+    created_at: datetime
+
+class BookingCreate(BaseModel):
+    trip_id: Optional[str] = None
+    destination: str
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    travelers: int = 1
+    package_type: Optional[str] = None
+    hotel_name: Optional[str] = None
+    flight_number: Optional[str] = None
+    total_price: float
+    currency: str = "INR"
+
+class GalleryPost(BaseModel):
+    id: str
+    image_url: str
+    caption: Optional[str] = None
+    location: Optional[str] = None
+    tags: List[str] = []
+    likes: int
+    created_at: datetime
 
 class Destination(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -448,7 +523,10 @@ async def create_trip(trip: TripCreate, current_user: User = Depends(get_current
         days=trip.days,
         budget=trip.budget,
         currency=trip.currency,
-        total_cost=0,
+        total_cost=trip.total_cost or 0,
+        start_date=trip.start_date,
+        end_date=trip.end_date,
+        travelers=trip.travelers,
         itinerary_json=json.dumps(trip.itinerary),
         images_json=json.dumps([]),
     )
@@ -462,6 +540,9 @@ async def create_trip(trip: TripCreate, current_user: User = Depends(get_current
         budget=new_trip.budget,
         currency=new_trip.currency,
         total_cost=new_trip.total_cost,
+        start_date=new_trip.start_date,
+        end_date=new_trip.end_date,
+        travelers=new_trip.travelers,
         itinerary=json.loads(new_trip.itinerary_json),
         created_at=new_trip.created_at,
         images=json.loads(new_trip.images_json),
@@ -479,6 +560,9 @@ async def get_user_trips(current_user: User = Depends(get_current_user), db: Ses
             budget=r.budget,
             currency=r.currency,
             total_cost=r.total_cost,
+            start_date=r.start_date,
+            end_date=r.end_date,
+            travelers=r.travelers,
             itinerary=json.loads(r.itinerary_json or "[]"),
             created_at=r.created_at,
             images=json.loads(r.images_json or "[]"),
@@ -498,6 +582,9 @@ async def get_trip(trip_id: str, current_user: User = Depends(get_current_user),
         budget=r.budget,
         currency=r.currency,
         total_cost=r.total_cost,
+        start_date=r.start_date,
+        end_date=r.end_date,
+        travelers=r.travelers,
         itinerary=json.loads(r.itinerary_json or "[]"),
         created_at=r.created_at,
         images=json.loads(r.images_json or "[]"),
@@ -508,6 +595,10 @@ class TripUpdate(BaseModel):
     days: Optional[int] = None
     budget: Optional[str] = None
     currency: Optional[str] = None
+    total_cost: Optional[float] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    travelers: Optional[int] = None
     itinerary: Optional[List[dict]] = None
     images: Optional[List[str]] = None
 
@@ -526,6 +617,14 @@ async def update_trip(trip_id: str, trip_update: TripUpdate, current_user: User 
         r.budget = trip_update.budget
     if trip_update.currency is not None:
         r.currency = trip_update.currency
+    if trip_update.total_cost is not None:
+        r.total_cost = trip_update.total_cost
+    if trip_update.start_date is not None:
+        r.start_date = trip_update.start_date
+    if trip_update.end_date is not None:
+        r.end_date = trip_update.end_date
+    if trip_update.travelers is not None:
+        r.travelers = trip_update.travelers
     if trip_update.itinerary is not None:
         r.itinerary_json = json.dumps(trip_update.itinerary)
     if trip_update.images is not None:
@@ -542,6 +641,9 @@ async def update_trip(trip_id: str, trip_update: TripUpdate, current_user: User 
         budget=r.budget,
         currency=r.currency,
         total_cost=r.total_cost,
+        start_date=r.start_date,
+        end_date=r.end_date,
+        travelers=r.travelers,
         itinerary=json.loads(r.itinerary_json or "[]"),
         created_at=r.created_at,
         images=json.loads(r.images_json or "[]"),
@@ -555,6 +657,180 @@ async def delete_trip(trip_id: str, current_user: User = Depends(get_current_use
     db.delete(r)
     db.commit()
     return {"message": "Trip deleted successfully"}
+
+# Bookings endpoints
+@api_router.post("/bookings", response_model=Booking)
+async def create_booking(payload: BookingCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    booking_ref = f"WL-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
+    booking = BookingModel(
+        user_id=current_user.id,
+        trip_id=payload.trip_id,
+        destination=payload.destination,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+        travelers=payload.travelers,
+        package_type=payload.package_type,
+        hotel_name=payload.hotel_name,
+        flight_number=payload.flight_number,
+        total_price=payload.total_price,
+        currency=payload.currency,
+        booking_ref=booking_ref,
+    )
+    db.add(booking)
+    db.commit()
+    db.refresh(booking)
+    return Booking(
+        id=booking.id,
+        destination=booking.destination,
+        start_date=booking.start_date,
+        end_date=booking.end_date,
+        travelers=booking.travelers,
+        package_type=booking.package_type,
+        hotel_name=booking.hotel_name,
+        flight_number=booking.flight_number,
+        total_price=booking.total_price,
+        currency=booking.currency,
+        booking_ref=booking.booking_ref,
+        created_at=booking.created_at,
+    )
+
+@api_router.get("/bookings", response_model=List[Booking])
+async def list_bookings(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    rows = db.query(BookingModel).filter(BookingModel.user_id == current_user.id).order_by(BookingModel.created_at.desc()).all()
+    return [
+        Booking(
+            id=r.id,
+            destination=r.destination,
+            start_date=r.start_date,
+            end_date=r.end_date,
+            travelers=r.travelers,
+            package_type=r.package_type,
+            hotel_name=r.hotel_name,
+            flight_number=r.flight_number,
+            total_price=r.total_price,
+            currency=r.currency,
+            booking_ref=r.booking_ref,
+            created_at=r.created_at,
+        ) for r in rows
+    ]
+
+@api_router.delete("/bookings/{booking_id}")
+async def delete_booking(booking_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    r = db.query(BookingModel).filter(BookingModel.id == booking_id, BookingModel.user_id == current_user.id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    db.delete(r)
+    db.commit()
+    return {"message": "Booking deleted"}
+
+# Gallery endpoints
+@api_router.post("/gallery", response_model=GalleryPost)
+async def create_gallery_post(
+    caption: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),  # JSON-encoded list of strings
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    upload_dir = Path("uploads")
+    upload_dir.mkdir(exist_ok=True)
+    file_ext = Path(file.filename).suffix
+    file_name = f"gallery_{current_user.id}_{uuid.uuid4()}{file_ext}"
+    file_path = upload_dir / file_name
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+    image_url = f"/uploads/{file_name}"
+
+    tags_list = []
+    try:
+        if tags:
+            tags_list = json.loads(tags)
+            if not isinstance(tags_list, list):
+                tags_list = []
+    except Exception:
+        tags_list = []
+
+    row = GalleryPostModel(
+        user_id=current_user.id,
+        image_url=image_url,
+        caption=caption,
+        location=location,
+        tags_json=json.dumps(tags_list),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return GalleryPost(
+        id=row.id,
+        image_url=row.image_url,
+        caption=row.caption,
+        location=row.location,
+        tags=json.loads(row.tags_json or "[]"),
+        likes=row.likes,
+        created_at=row.created_at,
+    )
+
+@api_router.get("/gallery", response_model=List[GalleryPost])
+async def list_gallery_posts(limit: int = 50, db: Session = Depends(get_db)):
+    rows = db.query(GalleryPostModel).order_by(GalleryPostModel.created_at.desc()).limit(limit).all()
+    return [
+        GalleryPost(
+            id=r.id,
+            image_url=r.image_url,
+            caption=r.caption,
+            location=r.location,
+            tags=json.loads(r.tags_json or "[]"),
+            likes=r.likes,
+            created_at=r.created_at,
+        ) for r in rows
+    ]
+
+@api_router.post("/gallery/{post_id}/like")
+async def like_gallery_post(post_id: str, db: Session = Depends(get_db)):
+    r = db.query(GalleryPostModel).filter(GalleryPostModel.id == post_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Post not found")
+    r.likes = (r.likes or 0) + 1
+    db.commit()
+    return {"likes": r.likes}
+
+@api_router.delete("/gallery/{post_id}")
+async def delete_gallery_post(post_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    r = db.query(GalleryPostModel).filter(GalleryPostModel.id == post_id, GalleryPostModel.user_id == current_user.id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Post not found or not owned by user")
+    db.delete(r)
+    db.commit()
+    return {"message": "Post deleted"}
+
+# Analytics endpoint
+class AnalyticsSummary(BaseModel):
+    total_trips: int
+    total_spend: float
+    avg_days: float
+    top_destinations: List[dict]
+
+@api_router.get("/analytics/summary", response_model=AnalyticsSummary)
+async def analytics_summary(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    trips = db.query(TripModel).filter(TripModel.user_id == current_user.id).all()
+    total_trips = len(trips)
+    total_spend = sum([t.total_cost or 0 for t in trips])
+    avg_days = (sum([t.days or 0 for t in trips]) / total_trips) if total_trips > 0 else 0
+    # Top destinations
+    dest_counts = {}
+    for t in trips:
+        dest_counts[t.destination] = dest_counts.get(t.destination, 0) + 1
+    top_destinations = sorted([
+        {"destination": d, "count": c} for d, c in dest_counts.items()
+    ], key=lambda x: x["count"], reverse=True)[:5]
+    return AnalyticsSummary(
+        total_trips=total_trips,
+        total_spend=total_spend,
+        avg_days=avg_days,
+        top_destinations=top_destinations,
+    )
 
 # Destinations endpoint with real API integration using OpenTripMap
 @api_router.get("/destinations", response_model=List[Destination])
@@ -635,6 +911,24 @@ async def get_weather(location: str):
     if not api_key:
         # Return mock data if no API key
         return {"temp": 25, "condition": "Sunny", "humidity": 60}
+
+# Geolocation reverse lookup -> city name
+@api_router.get("/geolocate")
+async def reverse_geolocate(lat: float, lon: float):
+    api_key = os.environ.get('OPENWEATHER_API_KEY')
+    if not api_key:
+        return {"city": None}
+    try:
+        url = f"http://api.openweathermap.org/geo/1.0/reverse?lat={lat}&lon={lon}&limit=1&appid={api_key}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list) and data:
+                item = data[0]
+                return {"city": item.get("name"), "country": item.get("country")}
+    except Exception:
+        pass
+    return {"city": None}
 
     try:
         url = f"http://api.openweathermap.org/data/2.5/weather?q={location}&appid={api_key}&units=metric"
@@ -727,22 +1021,6 @@ logger = logging.getLogger(__name__)
 def on_startup():
     # Create tables if not exist
     Base.metadata.create_all(bind=engine)
-    # Best-effort add columns for users (in case table existed before)
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("""
-                ALTER TABLE users
-                ADD COLUMN IF NOT EXISTS name VARCHAR(255) NULL,
-                ADD COLUMN IF NOT EXISTS phone VARCHAR(50) NULL,
-                ADD COLUMN IF NOT EXISTS profile_image VARCHAR(500) NULL,
-                ADD COLUMN IF NOT EXISTS favorite_travel_type VARCHAR(50) NULL,
-                ADD COLUMN IF NOT EXISTS preferred_budget_range VARCHAR(50) NULL,
-                ADD COLUMN IF NOT EXISTS climate_preference VARCHAR(50) NULL,
-                ADD COLUMN IF NOT EXISTS food_preference VARCHAR(50) NULL,
-                ADD COLUMN IF NOT EXISTS language_preference VARCHAR(50) NULL,
-                ADD COLUMN IF NOT EXISTS notifications_enabled TINYINT DEFAULT 1
-            """))
-    except Exception as e:
-        logger.warning(f"Could not ensure user columns exist: {e}")
+    logger.info("Database tables created/verified successfully")
 
 

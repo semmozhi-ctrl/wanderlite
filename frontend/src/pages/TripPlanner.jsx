@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { jsPDF } from 'jspdf';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { sampleItineraries, destinations, mockCurrencyRates } from '../data/mock';
@@ -84,6 +85,9 @@ const TripPlanner = () => {
           budget,
           currency,
           total_cost: totalBudget,
+          start_date: startDate ? startDate.toISOString() : null,
+          end_date: endDate ? endDate.toISOString() : null,
+          travelers: numTravelers,
           itinerary: plan.itinerary
         })
       });
@@ -93,6 +97,52 @@ const TripPlanner = () => {
       }
     } catch (error) {
       console.error('Error saving trip:', error);
+    }
+  };
+
+  const confirmBooking = async () => {
+    if (!generatedPlan) return;
+    try {
+      const base = process.env.REACT_APP_BACKEND_URL || '';
+      const res = await fetch(`${base}/api/bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          destination: generatedPlan.destination,
+          start_date: startDate ? startDate.toISOString() : null,
+          end_date: endDate ? endDate.toISOString() : null,
+          travelers: generatedPlan.travelers || 1,
+          package_type: generatedPlan.budget,
+          total_price: generatedPlan.convertedTotal,
+          currency: generatedPlan.currency
+        })
+      });
+      if (!res.ok) throw new Error('Booking failed');
+      const data = await res.json();
+
+      // Generate a simple PDF confirmation
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.text('WanderLite Booking Confirmation', 14, 20);
+      doc.setFontSize(12);
+      const lines = [
+        `Booking Ref: ${data.booking_ref}`,
+        `Destination: ${data.destination}`,
+        `Dates: ${generatedPlan.startDate || '-'} to ${generatedPlan.endDate || '-'}`,
+        `Travelers: ${data.travelers}`,
+        `Package: ${data.package_type || 'Standard'}`,
+        `Total: ${getCurrencySymbol(data.currency)} ${Number(data.total_price).toLocaleString()}`,
+        `Created: ${new Date(data.created_at).toLocaleString()}`
+      ];
+      lines.forEach((l, i) => doc.text(l, 14, 40 + i * 8));
+      doc.save(`WanderLite_${data.booking_ref}.pdf`);
+      alert('Booking confirmed! PDF downloaded.');
+    } catch (e) {
+      console.error(e);
+      alert('Booking failed');
     }
   };
 
@@ -345,6 +395,15 @@ const TripPlanner = () => {
                   on your preferences. Actual costs may vary. Weather and currency data are
                   currently mocked and will be updated with real-time data soon.
                 </p>
+              </div>
+
+              <div>
+                <Button
+                  onClick={confirmBooking}
+                  className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white text-lg font-semibold rounded-lg shadow-lg"
+                >
+                  Confirm Booking & Download PDF
+                </Button>
               </div>
             </div>
           </Card>

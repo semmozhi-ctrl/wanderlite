@@ -22,10 +22,12 @@ const Dashboard = () => {
     totalBudget: 0,
     savedDestinations: 0
   });
+  const [analytics, setAnalytics] = useState(null);
 
   useEffect(() => {
     fetchTrips();
     fetchWeather();
+    fetchAnalytics();
   }, []);
 
   const fetchTrips = async () => {
@@ -78,6 +80,30 @@ const Dashboard = () => {
     }
   };
 
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const { latitude, longitude } = pos.coords;
+        const base = process.env.REACT_APP_BACKEND_URL || '';
+        const { data } = await axios.get(`${base}/api/geolocate`, { params: { lat: latitude, lon: longitude } });
+        const city = data.city || 'Mumbai';
+        fetchWeather(city);
+      } catch (e) {
+        fetchWeather('Mumbai');
+      }
+    }, () => fetchWeather('Mumbai'));
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      const { data } = await axios.get('/api/analytics/summary');
+      setAnalytics(data);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const deleteTrip = async (tripId) => {
     if (window.confirm('Are you sure you want to delete this trip?')) {
       try {
@@ -119,7 +145,7 @@ const Dashboard = () => {
           <p className="text-gray-600">Ready for your next adventure?</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-white">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -171,6 +197,20 @@ const Dashboard = () => {
                 </div>
                 <div className="p-3 bg-orange-100 rounded-full">
                   <MapPin className="w-6 h-6 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-cyan-50 to-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Avg. Days</p>
+                  <p className="text-3xl font-bold text-cyan-600">{analytics?.avg_days ? analytics.avg_days.toFixed(1) : 0}</p>
+                </div>
+                <div className="p-3 bg-cyan-100 rounded-full">
+                  <Calendar className="w-6 h-6 text-cyan-600" />
                 </div>
               </div>
             </CardContent>
@@ -247,6 +287,9 @@ const Dashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="flex justify-end mb-2">
+                <Button size="sm" variant="outline" onClick={useMyLocation}>Use My Location</Button>
+              </div>
               {weatherLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#31A8E0]"></div>
@@ -308,6 +351,24 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+
+        {analytics && analytics.top_destinations?.length > 0 && (
+          <Card className="border-0 shadow-xl mt-8">
+            <CardHeader>
+              <CardTitle className="text-[#31A8E0]">Top Destinations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {analytics.top_destinations.map((d) => (
+                  <div key={d.destination} className="p-4 bg-gray-50 rounded-lg flex items-center justify-between">
+                    <span className="font-semibold">{d.destination}</span>
+                    <span className="text-sm text-gray-600">{d.count} trips</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       </div>
     </div>
