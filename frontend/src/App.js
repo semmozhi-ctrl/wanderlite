@@ -12,6 +12,7 @@ import Contact from "./pages/Contact";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
+import Dashboard from "./pages/Dashboard";
 import { Toaster } from "./components/ui/sonner";
 
 // Protected Route component
@@ -59,6 +60,7 @@ function App() {
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           </Routes>
           <Footer />
           <Toaster />

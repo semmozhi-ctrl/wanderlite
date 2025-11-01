@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { sampleItineraries, destinations, mockCurrencyRates } from '../data/mock';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
+import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { MapPin, Calendar, DollarSign, Sparkles, Clock } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Sparkles, Clock, Users } from 'lucide-react';
 
 const TripPlanner = () => {
   const [destination, setDestination] = useState('');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  const [numTravelers, setNumTravelers] = useState(1);
+  const [budgetAmount, setBudgetAmount] = useState('');
   const [days, setDays] = useState('');
   const [budget, setBudget] = useState('');
   const [currency, setCurrency] = useState('INR');
@@ -25,24 +32,39 @@ const TripPlanner = () => {
     return Math.round(inUSD * mockCurrencyRates[toCurrency]);
   };
 
+  const calculateDays = () => {
+    if (startDate && endDate) {
+      const diffTime = Math.abs(endDate - startDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays || 1;
+    }
+    return days || 1;
+  };
+
   const generateItinerary = async () => {
     if (!destination || !budget) {
       alert('Please select a destination and budget');
       return;
     }
 
+    const tripDays = calculateDays();
     const destKey = destination.toLowerCase().split(',')[0];
     const itineraries = sampleItineraries[destKey] || sampleItineraries['default'];
     const plan = itineraries.budget[budget];
 
     const convertedTotal = convertCurrency(plan.total, 'INR', currency);
+    const totalBudget = budgetAmount ? parseFloat(budgetAmount) : convertedTotal;
 
     const tripData = {
       ...plan,
       destination,
       budget,
       currency,
-      convertedTotal
+      convertedTotal: totalBudget,
+      days: tripDays,
+      travelers: numTravelers,
+      startDate: startDate ? startDate.toLocaleDateString() : null,
+      endDate: endDate ? endDate.toLocaleDateString() : null,
     };
 
     setGeneratedPlan(tripData);
@@ -58,9 +80,10 @@ const TripPlanner = () => {
         },
         body: JSON.stringify({
           destination,
-          days: plan.days,
+          days: tripDays,
           budget,
           currency,
+          total_cost: totalBudget,
           itinerary: plan.itinerary
         })
       });
@@ -121,7 +144,98 @@ const TripPlanner = () => {
               </Select>
             </div>
 
-            {/* Budget Selection */}
+            {/* Date Range Picker */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-base font-semibold text-gray-700 flex items-center space-x-2">
+                  <Calendar className="w-5 h-5 text-[#0077b6]" />
+                  <span>Start Date</span>
+                </Label>
+                <DatePicker
+                  selected={startDate}
+                  onChange={(date) => setStartDate(date)}
+                  selectsStart
+                  startDate={startDate}
+                  endDate={endDate}
+                  minDate={new Date()}
+                  placeholderText="Select start date"
+                  className="w-full h-12 px-3 border-2 border-gray-200 rounded-md focus:border-[#0077b6] focus:outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-base font-semibold text-gray-700 flex items-center space-x-2">
+                  <Calendar className="w-5 h-5 text-[#0077b6]" />
+                  <span>End Date</span>
+                </Label>
+                <DatePicker
+                  selected={endDate}
+                  onChange={(date) => setEndDate(date)}
+                  selectsEnd
+                  startDate={startDate}
+                  endDate={endDate}
+                  minDate={startDate || new Date()}
+                  placeholderText="Select end date"
+                  className="w-full h-12 px-3 border-2 border-gray-200 rounded-md focus:border-[#0077b6] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Number of Travelers */}
+            <div className="space-y-2">
+              <Label className="text-base font-semibold text-gray-700 flex items-center space-x-2">
+                <Users className="w-5 h-5 text-[#0077b6]" />
+                <span>Number of Travelers</span>
+              </Label>
+              <Select value={numTravelers.toString()} onValueChange={(val) => setNumTravelers(parseInt(val))}>
+                <SelectTrigger className="w-full h-12 border-2 border-gray-200 focus:border-[#0077b6]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                    <SelectItem key={num} value={num.toString()}>
+                      {num} {num === 1 ? 'Traveler' : 'Travelers'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Budget Input */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-base font-semibold text-gray-700 flex items-center space-x-2">
+                  <DollarSign className="w-5 h-5 text-[#0077b6]" />
+                  <span>Budget Amount (Optional)</span>
+                </Label>
+                <Input
+                  type="number"
+                  value={budgetAmount}
+                  onChange={(e) => setBudgetAmount(e.target.value)}
+                  placeholder="Enter your budget"
+                  className="h-12 border-2 border-gray-200 focus:border-[#0077b6]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-base font-semibold text-gray-700 flex items-center space-x-2">
+                  <DollarSign className="w-5 h-5 text-[#0077b6]" />
+                  <span>Currency</span>
+                </Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger className="w-full h-12 border-2 border-gray-200 focus:border-[#0077b6]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(mockCurrencyRates).map((curr) => (
+                      <SelectItem key={curr} value={curr}>
+                        {curr} - {getCurrencySymbol(curr)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Budget Range Selection */}
             <div className="space-y-2">
               <Label className="text-base font-semibold text-gray-700 flex items-center space-x-2">
                 <DollarSign className="w-5 h-5 text-[#0077b6]" />
@@ -129,32 +243,12 @@ const TripPlanner = () => {
               </Label>
               <Select value={budget} onValueChange={setBudget}>
                 <SelectTrigger className="w-full h-12 border-2 border-gray-200 focus:border-[#0077b6]">
-                  <SelectValue placeholder="Select your budget" />
+                  <SelectValue placeholder="Select your budget range" />
                 </SelectTrigger>
                 <SelectContent>
                   {budgetRanges.map((range) => (
                     <SelectItem key={range.value} value={range.value}>
                       {range.label} - {range.inr}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Currency Selection */}
-            <div className="space-y-2">
-              <Label className="text-base font-semibold text-gray-700 flex items-center space-x-2">
-                <DollarSign className="w-5 h-5 text-[#0077b6]" />
-                <span>Preferred Currency</span>
-              </Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="w-full h-12 border-2 border-gray-200 focus:border-[#0077b6]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(mockCurrencyRates).map((curr) => (
-                    <SelectItem key={curr} value={curr}>
-                      {curr} - {getCurrencySymbol(curr)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -181,17 +275,39 @@ const TripPlanner = () => {
                 <h2 className="text-3xl font-bold text-gray-800 mb-2">
                   Your {generatedPlan.days}-Day Trip to {generatedPlan.destination}
                 </h2>
-                <div className="flex items-center space-x-4 text-gray-600">
-                  <div className="flex items-center space-x-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  {generatedPlan.startDate && (
+                    <div className="flex items-center space-x-2 text-gray-600">
+                      <Calendar className="w-5 h-5 text-[#0077b6]" />
+                      <div>
+                        <p className="text-xs text-gray-500">Dates</p>
+                        <p className="font-semibold">{generatedPlan.startDate} - {generatedPlan.endDate}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center space-x-2 text-gray-600">
                     <Clock className="w-5 h-5 text-[#0077b6]" />
-                    <span className="font-semibold">{generatedPlan.days} Days</span>
+                    <div>
+                      <p className="text-xs text-gray-500">Duration</p>
+                      <p className="font-semibold">{generatedPlan.days} Days</p>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 text-gray-600">
+                    <Users className="w-5 h-5 text-[#0077b6]" />
+                    <div>
+                      <p className="text-xs text-gray-500">Travelers</p>
+                      <p className="font-semibold">{generatedPlan.travelers}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 text-gray-600">
                     <DollarSign className="w-5 h-5 text-[#0077b6]" />
-                    <span className="font-semibold">
-                      {getCurrencySymbol(generatedPlan.currency)}
-                      {generatedPlan.convertedTotal.toLocaleString()}
-                    </span>
+                    <div>
+                      <p className="text-xs text-gray-500">Budget</p>
+                      <p className="font-semibold">
+                        {getCurrencySymbol(generatedPlan.currency)}
+                        {generatedPlan.convertedTotal.toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

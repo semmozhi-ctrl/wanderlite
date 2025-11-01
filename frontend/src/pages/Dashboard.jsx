@@ -1,31 +1,80 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Card } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
 import axios from 'axios';
-import { MapPin, Calendar, DollarSign, Plus, Trash2, Edit, Upload, Camera } from 'lucide-react';
+import { 
+  MapPin, Calendar, Plus, Trash2,
+  Plane, Wallet, Navigation, ListChecks, User,
+  Cloud, Droplets, Wind, TrendingUp
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [stats, setStats] = useState({
+    totalTrips: 0,
+    upcomingTrips: 0,
+    totalBudget: 0,
+    savedDestinations: 0
+  });
 
   useEffect(() => {
     fetchTrips();
+    fetchWeather();
   }, []);
 
   const fetchTrips = async () => {
     try {
       const response = await axios.get('/api/trips');
-      setTrips(response.data);
+      const userTrips = response.data || [];
+      setTrips(userTrips);
+      
+      const now = new Date();
+      const upcoming = userTrips.filter(trip => {
+        return new Date(trip.created_at) > new Date(now.setDate(now.getDate() - 7));
+      });
+
+      const totalBudget = userTrips.reduce((sum, trip) => {
+        const budget = parseFloat(trip.total_cost) || 0;
+        return sum + budget;
+      }, 0);
+
+      setStats({
+        totalTrips: userTrips.length,
+        upcomingTrips: upcoming.length,
+        totalBudget: totalBudget,
+        savedDestinations: userTrips.length
+      });
     } catch (error) {
       console.error('Error fetching trips:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWeather = async (city = 'Mumbai') => {
+    setWeatherLoading(true);
+    try {
+      const apiKey = process.env.REACT_APP_OPENWEATHER_API_KEY || 'demo';
+      const response = await axios.get(
+        `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${apiKey}`
+      );
+      setWeather(response.data);
+    } catch (error) {
+      console.error('Failed to fetch weather', error);
+      setWeather({
+        name: city,
+        main: { temp: 28, humidity: 65, pressure: 1013 },
+        weather: [{ main: 'Clear', description: 'clear sky', icon: '01d' }],
+        wind: { speed: 5.2 }
+      });
+    } finally {
+      setWeatherLoading(false);
     }
   };
 
@@ -34,210 +83,232 @@ const Dashboard = () => {
       try {
         await axios.delete(`/api/trips/${tripId}`);
         setTrips(trips.filter(trip => trip.id !== tripId));
+        fetchTrips();
       } catch (error) {
         console.error('Error deleting trip:', error);
       }
     }
   };
 
-  const handleImageUpload = async (event, tripId) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    setUploading(true);
-    setSelectedTrip(tripId);
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await axios.post('/api/upload/image', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      // Update the trip with the new image URL
-      const imageUrl = response.data.image_url;
-      await axios.put(`/api/trips/${tripId}`, {
-        images: [...(trips.find(t => t.id === tripId)?.images || []), imageUrl]
-      });
-
-      // Refresh trips to show the new image
-      fetchTrips();
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Failed to upload image. Please try again.');
-    } finally {
-      setUploading(false);
-      setSelectedTrip(null);
-    }
-  };
-
-  const getCurrencySymbol = (currency) => {
-    const symbols = { USD: '$', EUR: '€', GBP: '£', INR: '₹', JPY: '¥', AED: 'AED' };
-    return symbols[currency] || currency;
-  };
+  const quickActions = [
+    { icon: Navigation, label: 'Explore', path: '/explore', color: 'from-blue-500 to-cyan-500' },
+    { icon: Plane, label: 'Planner', path: '/planner', color: 'from-purple-500 to-pink-500' },
+    { icon: ListChecks, label: 'Checklist', path: '/checklist', color: 'from-orange-500 to-red-500' },
+    { icon: User, label: 'Profile', path: '/profile', color: 'from-green-500 to-teal-500' }
+  ];
 
   if (loading) {
     return (
       <div className="min-h-screen pt-24 pb-16 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0077b6] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your trips...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#31A8E0] mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-16 bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen pt-24 pb-16 bg-gradient-to-b from-[#E1F0FD] to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+        
         <div className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-[#0077b6] to-[#48cae4] bg-clip-text text-transparent">
-                My Dashboard
-              </h1>
-              <p className="text-gray-600 mt-2">Manage your travel plans and memories</p>
-            </div>
-            <div className="flex space-x-4">
-              <Link to="/planner">
-                <Button className="bg-gradient-to-r from-[#0077b6] to-[#48cae4] hover:from-[#005f8f] hover:to-[#3ab5d9] text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Plan New Trip
-                </Button>
-              </Link>
-              <Button variant="outline" onClick={logout}>
-                Logout
-              </Button>
-            </div>
-          </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Welcome back, {user?.username || user?.name || 'Traveler'} 👋
+          </h1>
+          <p className="text-gray-600">Ready for your next adventure?</p>
         </div>
 
-        {/* Trips Grid */}
-        {trips.length === 0 ? (
-          <Card className="p-12 text-center border-0 shadow-lg">
-            <div className="space-y-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-[#0077b6] to-[#48cae4] rounded-full flex items-center justify-center mx-auto">
-                <MapPin className="w-8 h-8 text-white" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Trips</p>
+                  <p className="text-3xl font-bold text-[#31A8E0]">{stats.totalTrips}</p>
+                </div>
+                <div className="p-3 bg-blue-100 rounded-full">
+                  <Plane className="w-6 h-6 text-[#31A8E0]" />
+                </div>
               </div>
-              <h3 className="text-2xl font-bold text-gray-800">No trips yet</h3>
-              <p className="text-gray-600">Start planning your first adventure!</p>
-              <Link to="/planner">
-                <Button className="bg-gradient-to-r from-[#0077b6] to-[#48cae4] hover:from-[#005f8f] hover:to-[#3ab5d9] text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Your First Trip
-                </Button>
-              </Link>
-            </div>
+            </CardContent>
           </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {trips.map((trip) => (
-              <Card key={trip.id} className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-1">{trip.destination}</h3>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>{trip.days} days</span>
+
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Recent Trips</p>
+                  <p className="text-3xl font-bold text-purple-600">{stats.upcomingTrips}</p>
+                </div>
+                <div className="p-3 bg-purple-100 rounded-full">
+                  <Calendar className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Budget</p>
+                  <p className="text-3xl font-bold text-green-600">₹{stats.totalBudget.toLocaleString()}</p>
+                </div>
+                <div className="p-3 bg-green-100 rounded-full">
+                  <Wallet className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Destinations</p>
+                  <p className="text-3xl font-bold text-orange-600">{stats.savedDestinations}</p>
+                </div>
+                <div className="p-3 bg-orange-100 rounded-full">
+                  <MapPin className="w-6 h-6 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          <Card className="lg:col-span-2 border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[#31A8E0]">
+                  <TrendingUp className="w-5 h-5" />
+                  Your Trips
+                </div>
+                <Link to="/planner">
+                  <Button size="sm" className="bg-[#31A8E0] text-white">
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Trip
+                  </Button>
+                </Link>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {trips.length === 0 ? (
+                <div className="text-center py-12">
+                  <Plane className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 mb-4">No trips yet. Start planning your first adventure!</p>
+                  <Link to="/planner">
+                    <Button className="bg-[#31A8E0] text-white">
+                      Plan a Trip
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {trips.slice(0, 3).map((trip) => (
+                    <div 
+                      key={trip.id} 
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-[#31A8E0]/10 rounded-full">
+                          <MapPin className="w-5 h-5 text-[#31A8E0]" />
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4" />
-                          <span>{getCurrencySymbol(trip.currency)}{trip.total_cost}</span>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{trip.destination}</h3>
+                          <p className="text-sm text-gray-600">{trip.days} days • ₹{trip.total_cost}</p>
                         </div>
                       </div>
-                    </div>
-                    <Badge variant="secondary" className="bg-[#0077b6]/10 text-[#0077b6]">
-                      {trip.budget}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <h4 className="font-semibold text-gray-700">Itinerary:</h4>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {trip.itinerary.slice(0, 3).map((day, index) => (
-                        <div key={index} className="text-sm text-gray-600">
-                          <span className="font-medium">Day {day.day}:</span> {day.activities.substring(0, 50)}...
-                        </div>
-                      ))}
-                      {trip.itinerary.length > 3 && (
-                        <div className="text-sm text-gray-500">+{trip.itinerary.length - 3} more days</div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Images Section */}
-                  {trip.images && trip.images.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-gray-700 mb-2">Trip Photos:</h4>
-                      <div className="grid grid-cols-2 gap-2">
-                        {trip.images.slice(0, 4).map((image, index) => (
-                          <img
-                            key={index}
-                            src={image}
-                            alt={`Trip photo ${index + 1}`}
-                            className="w-full h-20 object-cover rounded-lg"
-                          />
-                        ))}
-                        {trip.images.length > 4 && (
-                          <div className="w-full h-20 bg-gray-200 rounded-lg flex items-center justify-center text-sm text-gray-600">
-                            +{trip.images.length - 4} more
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                    <div className="text-xs text-gray-500">
-                      Created {new Date(trip.created_at).toLocaleDateString()}
-                    </div>
-                    <div className="flex space-x-2">
-                      <div className="relative">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleImageUpload(e, trip.id)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          disabled={uploading}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-green-600 border-green-600 hover:bg-green-600 hover:text-white"
-                          disabled={uploading && selectedTrip === trip.id}
-                        >
-                          {uploading && selectedTrip === trip.id ? (
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
-                          ) : (
-                            <Camera className="w-3 h-3" />
-                          )}
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => deleteTrip(trip.id)}>
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
-                      <Button size="sm" variant="outline" className="text-[#0077b6] border-[#0077b6] hover:bg-[#0077b6] hover:text-white">
-                        <Edit className="w-3 h-3" />
+                    </div>
+                  ))}
+                  {trips.length > 3 && (
+                    <Link to="/profile">
+                      <Button variant="link" className="w-full text-[#31A8E0]">
+                        View All Trips →
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
-                        onClick={() => deleteTrip(trip.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-[#31A8E0]">
+                <Cloud className="w-5 h-5" />
+                Weather
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {weatherLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#31A8E0]"></div>
+                </div>
+              ) : weather ? (
+                <div>
+                  <div className="text-center mb-6">
+                    <p className="text-gray-600 mb-2">{weather.name}</p>
+                    <div className="text-5xl font-bold text-[#31A8E0] mb-2">
+                      {Math.round(weather.main.temp)}°C
+                    </div>
+                    <p className="text-gray-600 capitalize">
+                      {weather.weather[0].description}
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Droplets className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm text-gray-600">Humidity</span>
+                      </div>
+                      <span className="font-semibold">{weather.main.humidity}%</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Wind className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm text-gray-600">Wind Speed</span>
+                      </div>
+                      <span className="font-semibold">{weather.wind.speed} m/s</span>
                     </div>
                   </div>
                 </div>
-              </Card>
-            ))}
-          </div>
-        )}
+              ) : (
+                <p className="text-gray-500 text-center py-8">Weather data unavailable</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="border-0 shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-[#31A8E0]">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {quickActions.map((action) => (
+                <Link key={action.path} to={action.path}>
+                  <div className="group relative overflow-hidden rounded-xl p-6 bg-gradient-to-br hover:scale-105 transform transition duration-300 cursor-pointer shadow-lg hover:shadow-xl">
+                    <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-90 group-hover:opacity-100 transition`}></div>
+                    <div className="relative z-10 flex flex-col items-center text-white">
+                      <action.icon className="w-8 h-8 mb-3" />
+                      <span className="font-semibold">{action.label}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );

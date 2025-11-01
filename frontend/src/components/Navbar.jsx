@@ -89,6 +89,12 @@ const Navbar = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem asChild>
+                    <Link to="/dashboard" className="flex items-center space-x-2">
+                      <User className="w-4 h-4" />
+                      <span>Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/profile" className="flex items-center space-x-2">
                       <User className="w-4 h-4" />
                       <span>Profile</span>
@@ -161,6 +167,13 @@ const Navbar = () => {
                 <div className="px-4 py-2 text-sm font-medium text-gray-700">
                   {user?.username || 'User'}
                 </div>
+                <Link
+                  to="/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-all duration-200"
+                >
+                  Dashboard
+                </Link>
                 <Link
                   to="/profile"
                   onClick={() => setIsOpen(false)}
