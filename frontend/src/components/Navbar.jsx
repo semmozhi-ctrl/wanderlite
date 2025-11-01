@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Compass } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Menu, X, Compass, User, LogOut } from 'lucide-react';
+import { Button } from './ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const { isAuthenticated, user, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -65,6 +75,48 @@ const Navbar = () => {
             ))}
           </div>
 
+          {/* Auth Section */}
+          <div className="hidden md:flex items-center space-x-4">
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-gradient-to-r from-[#0077b6] to-[#48cae4] rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-sm font-medium">{user?.username || 'User'}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="flex items-center space-x-2">
+                      <User className="w-4 h-4" />
+                      <span>Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="flex items-center space-x-2 text-red-600">
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center space-x-3">
+                <Link to="/login">
+                  <Button variant="ghost" className={`transition-colors ${scrolled ? 'text-gray-700 hover:text-[#0077b6]' : 'text-gray-800 hover:text-[#0077b6]'}`}>
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/signup">
+                  <Button className="bg-gradient-to-r from-[#0077b6] to-[#48cae4] hover:from-[#005f8f] hover:to-[#3ab5d9] text-white">
+                    Sign Up
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+
           {/* Mobile menu button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
@@ -101,6 +153,50 @@ const Navbar = () => {
               {link.name}
             </Link>
           ))}
+
+          {/* Mobile Auth */}
+          <div className="border-t border-gray-200 mt-4 pt-4">
+            {isAuthenticated ? (
+              <>
+                <div className="px-4 py-2 text-sm font-medium text-gray-700">
+                  {user?.username || 'User'}
+                </div>
+                <Link
+                  to="/profile"
+                  onClick={() => setIsOpen(false)}
+                  className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-all duration-200"
+                >
+                  Profile
+                </Link>
+                <button
+                  onClick={() => {
+                    logout();
+                    setIsOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-3 rounded-lg font-medium text-red-600 hover:bg-red-50 transition-all duration-200"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <Link
+                  to="/login"
+                  onClick={() => setIsOpen(false)}
+                  className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-all duration-200"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/signup"
+                  onClick={() => setIsOpen(false)}
+                  className="block px-4 py-3 rounded-lg font-medium bg-gradient-to-r from-[#0077b6] to-[#48cae4] bg-clip-text text-transparent transition-all duration-200"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </nav>

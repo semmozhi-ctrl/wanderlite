@@ -25,7 +25,7 @@ const TripPlanner = () => {
     return Math.round(inUSD * mockCurrencyRates[toCurrency]);
   };
 
-  const generateItinerary = () => {
+  const generateItinerary = async () => {
     if (!destination || !budget) {
       alert('Please select a destination and budget');
       return;
@@ -37,13 +37,40 @@ const TripPlanner = () => {
 
     const convertedTotal = convertCurrency(plan.total, 'INR', currency);
 
-    setGeneratedPlan({
+    const tripData = {
       ...plan,
       destination,
       budget,
       currency,
       convertedTotal
-    });
+    };
+
+    setGeneratedPlan(tripData);
+
+    // Save to backend if user is authenticated
+    try {
+      const base = process.env.REACT_APP_BACKEND_URL || '';
+      const response = await fetch(`${base}/api/trips`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          destination,
+          days: plan.days,
+          budget,
+          currency,
+          itinerary: plan.itinerary
+        })
+      });
+
+      if (response.ok) {
+        console.log('Trip saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving trip:', error);
+    }
   };
 
   const getCurrencySymbol = (curr) => {

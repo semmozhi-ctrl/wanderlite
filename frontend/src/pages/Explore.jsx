@@ -1,22 +1,47 @@
-import React, { useState } from 'react';
-import { destinations, mockWeather } from '../data/mock';
+import React, { useState, useEffect } from 'react';
+import { destinations as mockDestinations, mockWeather } from '../data/mock';
+import axios from 'axios';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { MapPin, Cloud, Droplets, Calendar, Activity, X } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { MapPin, Cloud, Droplets, Calendar, Activity, X, Search } from 'lucide-react';
 
 const Explore = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedDestination, setSelectedDestination] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [destinations, setDestinations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const categories = ['All', 'Mountain', 'Beach', 'Heritage', 'Adventure'];
+  const categories = ['All', 'Beach', 'Heritage'];
 
-  const filteredDestinations =
-    selectedCategory === 'All'
-      ? destinations
-      : destinations.filter((dest) => dest.category === selectedCategory);
+  useEffect(() => {
+    const fetchDestinations = async () => {
+      try {
+        const response = await axios.get('/api/destinations');
+        setDestinations(response.data);
+      } catch (error) {
+        console.error('Error fetching destinations:', error);
+        // Fallback to mock data
+        setDestinations(mockDestinations);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDestinations();
+  }, []);
+
+  const filteredDestinations = destinations.filter((dest) => {
+    const matchesCategory = selectedCategory === 'All' || dest.category === selectedCategory;
+    const matchesSearch = dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         dest.shortDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         dest.attractions.some(attr => attr.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCategory && matchesSearch;
+  });
 
   const openModal = (destination) => {
     setSelectedDestination(destination);
@@ -41,22 +66,39 @@ const Explore = () => {
           </p>
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex flex-wrap justify-center gap-3 mb-12">
-          {categories.map((category) => (
-            <Button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              variant={selectedCategory === category ? 'default' : 'outline'}
-              className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${
-                selectedCategory === category
-                  ? 'bg-gradient-to-r from-[#0077b6] to-[#48cae4] text-white shadow-lg scale-105'
-                  : 'border-2 border-[#0077b6] text-[#0077b6] hover:bg-[#0077b6] hover:text-white'
-              }`}
-            >
-              {category}
-            </Button>
-          ))}
+        {/* Search and Filter Bar */}
+        <div className="mb-12 space-y-6">
+          {/* Search Bar */}
+          <div className="flex justify-center">
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Input
+                type="text"
+                placeholder="Search destinations, attractions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-3 rounded-full border-2 border-[#0077b6]/20 focus:border-[#0077b6] focus:ring-0"
+              />
+            </div>
+          </div>
+
+          {/* Filter Buttons */}
+          <div className="flex flex-wrap justify-center gap-3">
+            {categories.map((category) => (
+              <Button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                variant={selectedCategory === category ? 'default' : 'outline'}
+                className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${
+                  selectedCategory === category
+                    ? 'bg-gradient-to-r from-[#0077b6] to-[#48cae4] text-white shadow-lg scale-105'
+                    : 'border-2 border-[#0077b6] text-[#0077b6] hover:bg-[#0077b6] hover:text-white'
+                }`}
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
         </div>
 
         {/* Destination Grid */}
