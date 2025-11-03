@@ -21,6 +21,7 @@ from io import BytesIO
 import base64
 import hashlib
 from cryptography.fernet import Fernet
+import httpx
 
 # SQLAlchemy (MySQL via XAMPP)
 from sqlalchemy import (
@@ -217,6 +218,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'http://127.0.0.1:8001')
+HF_API_KEY = os.environ.get('HUGGINGFACE_API_KEY')
 
 security = HTTPBearer()
 
@@ -2210,6 +2212,89 @@ async def search_restaurants(query: RestaurantSearchQuery):
     """Search for restaurants"""
     restaurants = _generate_mock_restaurants(query.destination, query.cuisine, query.budget)
     return {"restaurants": restaurants, "count": len(restaurants)}
+
+
+# =============================
+# AI Assistant Endpoint
+# =============================
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+
+def _summarize_flights(origin: str, destination: str, db_data: List[dict]) -> str:
+    lines = [f"Here are sample flights from {origin} to {destination}:"]
+    for f in db_data[:3]:
+        lines.append(f"- {f['airline']} {f['flight_number']} {f['departure_time'][11:16]}→{f['arrival_time'][11:16]} | {f['duration']} | ₹{f['price']}")
+    return "\n".join(lines)
+
+@api_router.post("/ai/chat")
+async def ai_chat(req: ChatRequest):
+    user_msg = next((m.content for m in reversed(req.messages) if m.role == 'user'), '')
+    user_lower = user_msg.lower()
+
+    # Heuristic: if user asks for flights/hotels/restaurants, use our mock search to build an answer
+    try:
+        if 'flight' in user_lower and (' from ' in user_lower or ' to ' in user_lower):
+            # naive parse: "flights from X to Y"
+            origin = 'Delhi'
+            destination = 'Goa'
+            try:
+                parts = user_lower.replace('flights', '').replace('flight', '')
+                if 'from' in parts and 'to' in parts:
+                    origin = parts.split('from')[1].split('to')[0].strip().title()
+                    destination = parts.split('to')[1].strip().title()
+            except Exception:
+                pass
+            flights = _generate_mock_flights(origin, destination, None, 1)
+            return { 'answer': _summarize_flights(origin, destination, flights) }
+
+        if 'hotel' in user_lower:
+            dest = 'Goa'
+            try:
+                # pick last word as destination rudimentarily
+                dest = user_msg.strip().split()[-1]
+            except Exception:
+                pass
+            hotels = _generate_mock_hotels(dest, None, None, 2, None, None)
+            top = hotels[:3]
+            ans = "Top hotels in {d}:\n".format(d=dest)
+            ans += "\n".join([f"- {h['name']} ({h['rating']}/5) ₹{h['price_per_night']}/night" for h in top])
+            return { 'answer': ans }
+
+        if 'restaurant' in user_lower or 'dining' in user_lower:
+            dest = 'Goa'
+            restaurants = _generate_mock_restaurants(dest, None, None)
+            top = restaurants[:3]
+            ans = "Popular restaurants in {d}:\n".format(d=dest)
+            ans += "\n".join([f"- {r['name']} ({r['cuisine']}) avg ₹{r['average_cost']}" for r in top])
+            return { 'answer': ans }
+    except Exception:
+        pass
+
+    # Fallback to Hugging Face Inference API if configured
+    if HF_API_KEY:
+        try:
+            prompt = "You are a helpful travel assistant. Answer concisely.\n" + user_msg
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3',
+                    headers={ 'Authorization': f'Bearer {HF_API_KEY}' },
+                    json={ 'inputs': prompt, 'parameters': { 'max_new_tokens': 200, 'temperature': 0.7 } }
+                )
+            data = resp.json()
+            if isinstance(data, list) and data and 'generated_text' in data[0]:
+                return { 'answer': data[0]['generated_text'][-600:] }
+            if isinstance(data, dict) and 'generated_text' in data:
+                return { 'answer': data['generated_text'] }
+        except Exception as e:
+            logger.warning(f"HF inference failed: {e}")
+
+    # Final fallback
+    return { 'answer': "I can help with destinations, flights, hotels, and restaurants. Ask me for flights from City A to City B, or hotels in a city." }
 
 
 @api_router.post("/service/bookings")

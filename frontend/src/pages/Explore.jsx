@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Card } from '../components/ui/card';
+import { slugify } from '../lib/utils';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
@@ -13,6 +14,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { MapPin, Cloud, Droplets, Calendar, Activity, X, Search, CheckCircle, Users, IndianRupee } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 
 const Explore = () => {
   const navigate = useNavigate();
@@ -240,7 +242,7 @@ const Explore = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredDestinations.map((destination) => {
             const weather = mockWeather[destination.name] || { temp: 25, condition: "Pleasant", humidity: 60 };
-            const destinationSlug = destination.name.toLowerCase().replace(/\s+/g, '-');
+            const destinationSlug = slugify(destination.name);
             return (
               <Card
                 key={destination.id}
@@ -603,6 +605,14 @@ const Explore = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Floating AI Assistant Button */}
+      <button
+        onClick={() => navigate('/assistant')}
+        aria-label="Open assistant"
+        className="fixed bottom-6 right-6 z-50 rounded-full bg-sky-500 hover:bg-sky-600 text-white shadow-xl p-4"
+      >
+        <MessageCircle className="w-6 h-6" />
+      </button>
     </div>
   );
 };

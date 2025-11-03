@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import { slugify } from '../lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -33,7 +34,7 @@ const DestinationDetails = () => {
       // Fetch destination info
       const response = await axios.get('/api/destinations');
       const dest = response.data.find(
-        d => d.name.toLowerCase().replace(/\s+/g, '-') === destinationName.toLowerCase()
+        d => slugify(d.name) === destinationName.toLowerCase()
       );
       
       if (dest) {

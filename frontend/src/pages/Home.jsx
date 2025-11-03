@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, MapPin, Calendar, Shield, Sparkles } from 'lucide-react';
+import { ArrowRight, MapPin, Calendar, Shield, Sparkles, MessageCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { heroImages, destinations } from '../data/mock';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 
 const Home = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -204,6 +206,14 @@ const Home = () => {
           </Link>
         </div>
       </section>
+      {/* Floating AI Assistant Button */}
+      <button
+        onClick={() => navigate('/assistant')}
+        aria-label="Open assistant"
+        className="fixed bottom-6 right-6 z-50 rounded-full bg-sky-500 hover:bg-sky-600 text-white shadow-xl p-4"
+      >
+        <MessageCircle className="w-6 h-6" />
+      </button>
     </div>
   );
 };

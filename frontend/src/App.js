@@ -23,6 +23,7 @@ import MyBookings from "./pages/MyBookings";
 import MyReceipts from "./pages/MyReceipts";
 import TripHistory from "./pages/TripHistory";
 import Flights from "./pages/Flights";
+import Assistant from "./pages/Assistant";
 import Hotels from "./pages/Hotels";
 import Restaurants from "./pages/Restaurants";
 import DestinationDetails from "./pages/DestinationDetails";
@@ -91,6 +92,7 @@ function App() {
             <Route path="/my-bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
             <Route path="/my-receipts" element={<ProtectedRoute><MyReceipts /></ProtectedRoute>} />
             <Route path="/trip-history" element={<ProtectedRoute><TripHistory /></ProtectedRoute>} />
+            <Route path="/assistant" element={<Assistant />} />
           </Routes>
           <Footer />
           <Toaster />
