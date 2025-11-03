@@ -18,6 +18,9 @@ from fastapi.staticfiles import StaticFiles
 from fpdf import FPDF
 import qrcode
 from io import BytesIO
+import base64
+import hashlib
+from cryptography.fernet import Fernet
 
 # SQLAlchemy (MySQL via XAMPP)
 from sqlalchemy import (
@@ -213,6 +216,7 @@ pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'http://127.0.0.1:8001')
 
 security = HTTPBearer()
 
@@ -565,6 +569,30 @@ def _mask_credential(method: str, credential: str) -> str:
         pass
     return credential
 
+def _get_fernet() -> Fernet:
+    # Derive a stable Fernet key from SECRET_KEY (SHA-256 then urlsafe base64)
+    digest = hashlib.sha256(SECRET_KEY.encode('utf-8')).digest()
+    key = base64.urlsafe_b64encode(digest)
+    return Fernet(key)
+
+def _qr_encrypt(payload: dict) -> str:
+    token = _get_fernet().encrypt(json.dumps(payload).encode('utf-8'))
+    return token.decode('utf-8')
+
+def _qr_decrypt(token: str) -> dict:
+    data = _get_fernet().decrypt(token.encode('utf-8'))
+    return json.loads(data.decode('utf-8'))
+
+def _build_qr_verification_url(booking_ref: str, service_type: str) -> str:
+    payload = {
+        'br': booking_ref,
+        'stype': service_type,
+        'iat': datetime.now(timezone.utc).isoformat()
+    }
+    token = _qr_encrypt(payload)
+    base = PUBLIC_BASE_URL.rstrip('/')
+    return f"{base}/ticket/verify?token={token}"
+
 def _generate_flight_ticket_pdf(service_data: dict, booking_ref: str, passenger_info: dict, upload_dir: Path) -> str:
     """Generate a realistic flight ticket PDF with boarding pass layout."""
     tickets_dir = upload_dir / 'tickets'
@@ -767,9 +795,8 @@ def _generate_flight_ticket_pdf(service_data: dict, booking_ref: str, passenger_
     y += 15
     pdf.set_text_color(0, 0, 0)
     
-    # QR Code data includes all important flight information
-    passenger_name = passenger_info.get('fullName', passenger_info.get('full_name', 'N/A'))
-    qr_data = f"PNR: {booking_ref}\nPassenger: {passenger_name}\nFlight: {service_data.get('flight_number', 'N/A')}\nSeat: {seat}\nGate: {gate}\nBoarding: {boarding_time}\nFrom: {origin}\nTo: {destination}\nDate: {dep_date}"
+    # QR Code now encodes a secure verification URL
+    qr_data = _build_qr_verification_url(booking_ref, 'flight')
     
     # Create QR code
     qr = qrcode.QRCode(version=1, box_size=10, border=2)
@@ -923,6 +950,23 @@ def _generate_hotel_voucher_pdf(service_data: dict, booking_ref: str, guest_info
     pdf.cell(0, 5, '* Carry a valid government-issued ID for verification.', 0, 1)
     pdf.cell(0, 5, f"* For any queries, contact: support@wanderlite.com | Booking Ref: {booking_ref}", 0, 1)
     
+    # Add QR with verification URL
+    try:
+        verify_url = _build_qr_verification_url(booking_ref, 'hotel')
+        qr = qrcode.QRCode(version=1, box_size=8, border=2)
+        qr.add_data(verify_url)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_temp_path = tickets_dir / f"qr_{booking_ref}.png"
+        qr_img.save(str(qr_temp_path))
+        pdf.image(str(qr_temp_path), x=170, y=10, w=30, h=30)
+        try:
+            qr_temp_path.unlink()
+        except:
+            pass
+    except Exception:
+        pass
+
     pdf.output(str(file_path))
     return str(file_path.relative_to(upload_dir))
 
@@ -1032,6 +1076,23 @@ def _generate_restaurant_reservation_pdf(service_data: dict, booking_ref: str, g
     pdf.cell(0, 5, '* Reservation may be cancelled if you are more than 15 minutes late without notice.', 0, 1)
     pdf.cell(0, 5, f"* For cancellation or changes, contact: {guest_info.get('phone', 'N/A')} | Ref: {booking_ref}", 0, 1)
     
+    # Add QR with verification URL
+    try:
+        verify_url = _build_qr_verification_url(booking_ref, 'restaurant')
+        qr = qrcode.QRCode(version=1, box_size=8, border=2)
+        qr.add_data(verify_url)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_temp_path = tickets_dir / f"qr_{booking_ref}.png"
+        qr_img.save(str(qr_temp_path))
+        pdf.image(str(qr_temp_path), x=170, y=10, w=30, h=30)
+        try:
+            qr_temp_path.unlink()
+        except:
+            pass
+    except Exception:
+        pass
+
     pdf.output(str(file_path))
     return str(file_path.relative_to(upload_dir))
 
@@ -1162,6 +1223,55 @@ async def confirm_payment(payload: PaymentRequest, db: Session = Depends(get_db)
     except Exception as e:
         logger.exception("Payment confirmation failed")
         raise HTTPException(status_code=500, detail=f"Failed to generate receipt: {e}")
+
+
+@api_router.get("/tickets/verify")
+async def verify_ticket(token: str, db: Session = Depends(get_db)):
+    """Decrypt QR token and return real-time booking details for verification."""
+    try:
+        data = _qr_decrypt(token)
+        booking_ref = data.get('br')
+        service_type = data.get('stype')
+        if not booking_ref:
+            raise HTTPException(status_code=400, detail="Invalid token")
+
+        # Try service booking by booking_ref
+        service_booking = db.query(ServiceBookingModel).filter(
+            ServiceBookingModel.booking_ref == booking_ref
+        ).first()
+        service_json = None
+        if service_booking:
+            try:
+                service_json = json.loads(service_booking.service_json)
+            except Exception:
+                service_json = None
+
+        # Try receipt by booking_ref for payer details
+        receipt = db.query(PaymentReceiptModel).filter(
+            PaymentReceiptModel.booking_ref == booking_ref
+        ).order_by(PaymentReceiptModel.created_at.desc()).first()
+
+        return {
+            'status': 'valid',
+            'booking_ref': booking_ref,
+            'service_type': service_type,
+            'service': service_json,
+            'receipt': {
+                'full_name': receipt.full_name if receipt else None,
+                'email': receipt.email if receipt else None,
+                'phone': receipt.phone if receipt else None,
+                'amount': receipt.amount if receipt else None,
+                'destination': receipt.destination if receipt else None,
+                'start_date': receipt.start_date if receipt else None,
+                'end_date': receipt.end_date if receipt else None,
+                'travelers': receipt.travelers if receipt else None,
+            } if receipt else None
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Ticket verification failed")
+        raise HTTPException(status_code=400, detail=f"Invalid or expired token: {e}")
 
 
 @api_router.get("/receipts", response_model=List[ReceiptRecord])

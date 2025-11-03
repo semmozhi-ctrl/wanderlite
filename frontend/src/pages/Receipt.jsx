@@ -12,6 +12,8 @@ const Receipt = () => {
   const booking = state?.booking || null;
   const bookingRef = state?.bookingRef || booking?.booking_ref || 'WL';
   const payer = state?.payer || {};
+  const serviceType = state?.serviceType || 'Flight';
+  const serviceDetails = state?.serviceDetails || null;
 
   return (
     <div className="min-h-screen pt-24 pb-16 bg-gradient-to-b from-gray-50 to-white">
@@ -54,6 +56,12 @@ const Receipt = () => {
         </Card>
 
         <div className="mt-6 flex flex-col gap-3 items-center">
+          {/* View Ticket in-app */}
+          {serviceType === 'Flight' && (
+            <Button className="w-full max-w-sm h-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white" onClick={() => navigate('/ticket', { state: { bookingRef, serviceType, serviceDetails, payer, ticketUrl } })}>
+              <Ticket className="w-5 h-5 mr-2" /> View E‑Ticket
+            </Button>
+          )}
           {ticketUrl && (
             <Button asChild className="w-full max-w-sm h-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
               <a href={`/${ticketUrl}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2">

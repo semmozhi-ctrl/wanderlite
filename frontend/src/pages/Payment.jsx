@@ -117,7 +117,9 @@ const Payment = () => {
           ticketUrl: res.data.ticket_url,  // Include ticket URL
           bookingRef: res.data.booking_ref, 
           booking: booking || { booking_ref: bookingRef, ...serviceDetails },
-          payer: { ...form } 
+          payer: { ...form },
+          serviceType: serviceType || 'Flight',
+          serviceDetails
         } 
       });
       return;

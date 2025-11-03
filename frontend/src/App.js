@@ -17,6 +17,8 @@ import Gallery from "./pages/Gallery";
 import { Toaster } from "./components/ui/sonner";
 import Payment from "./pages/Payment";
 import Receipt from "./pages/Receipt";
+import Ticket from "./pages/Ticket";
+import TicketVerify from "./pages/TicketVerify";
 import MyBookings from "./pages/MyBookings";
 import MyReceipts from "./pages/MyReceipts";
 import TripHistory from "./pages/TripHistory";
@@ -84,6 +86,8 @@ function App() {
             <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
             <Route path="/payment" element={<Payment />} />
             <Route path="/receipt" element={<Receipt />} />
+            <Route path="/ticket" element={<Ticket />} />
+            <Route path="/ticket/verify" element={<TicketVerify />} />
             <Route path="/my-bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
             <Route path="/my-receipts" element={<ProtectedRoute><MyReceipts /></ProtectedRoute>} />
             <Route path="/trip-history" element={<ProtectedRoute><TripHistory /></ProtectedRoute>} />
