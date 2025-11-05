@@ -79,13 +79,22 @@ const Payment = () => {
 
     // Try backend receipt generation first
     try {
+      // Helpers to safely serialize optional dates to ISO 8601 (omit if invalid)
+      const toIso = (val) => {
+        if (!val) return undefined;
+        const d = new Date(val);
+        return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+      };
+
+      const prune = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined && v !== ''));
+
       // Prepare payload for service bookings or trip bookings
-      const payload = bookingRef ? {
+      const payload = bookingRef ? prune({
         // Service booking (flight/hotel/restaurant)
         booking_ref: bookingRef,
         destination: serviceDetails?.destination || '',
-        start_date: serviceDetails?.checkIn || serviceDetails?.travelDate || serviceDetails?.reservationDate || '',
-        end_date: serviceDetails?.checkOut || '',
+        start_date: toIso(serviceDetails?.checkIn || serviceDetails?.travelDate || serviceDetails?.reservationDate),
+        end_date: toIso(serviceDetails?.checkOut),
         travelers: serviceDetails?.travelers || serviceDetails?.guests || 1,
         full_name: form.fullName,
         email: form.email,
@@ -93,12 +102,12 @@ const Payment = () => {
         method: form.method,
         credential: form.credential,
         amount: Number(paymentAmount) || 0,
-      } : {
+      }) : prune({
         // Old trip booking format
         booking_ref: booking?.booking_ref,
         destination: booking?.destination,
-        start_date: booking?.start_date,
-        end_date: booking?.end_date,
+        start_date: toIso(booking?.start_date),
+        end_date: toIso(booking?.end_date),
         travelers: booking?.travelers,
         full_name: form.fullName,
         email: form.email,
@@ -106,9 +115,10 @@ const Payment = () => {
         method: form.method,
         credential: form.credential,
         amount: Number(paymentAmount) || 0,
-      };
+      });
 
-      const res = await axios.post('/api/payment/confirm', payload);
+  const BASE = process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8001';
+  const res = await axios.post(`${BASE}/api/payment/confirm`, payload);
       setSuccess(true);
       setSubmitting(false);
       navigate('/receipt', { 
@@ -118,56 +128,16 @@ const Payment = () => {
           bookingRef: res.data.booking_ref, 
           booking: booking || { booking_ref: bookingRef, ...serviceDetails },
           payer: { ...form },
-          serviceType: serviceType || 'Flight',
+          serviceType, // keep original type from state (Hotel/Restaurant/Flight)
           serviceDetails
         } 
       });
       return;
     } catch (err) {
-      // Fallback: local PDF generation
-      try {
-        const doc = new jsPDF();
-        doc.setFillColor(0, 119, 182);
-        doc.rect(0, 0, 210, 35, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(20);
-        doc.text('WanderLite', 14, 20);
-        doc.setFontSize(12);
-        doc.text('Payment Receipt', 170, 20, { align: 'right' });
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(12);
-        let y = 50;
-        const lines = [
-          ['Receipt No.:', booking?.booking_ref || 'WL-XXXX-XXXX'],
-          ['Date:', new Date().toLocaleString()],
-          ['Destination:', booking?.destination || '-'],
-          ['Travel Dates:', `${booking?.start_date ? new Date(booking.start_date).toLocaleDateString() : '-'} to ${booking?.end_date ? new Date(booking.end_date).toLocaleDateString() : '-'}`],
-          ['Travelers:', String(booking?.travelers ?? '-')],
-          ['Name:', form.fullName],
-          ['Email:', form.email],
-          ['Phone:', form.phone],
-          ['Payment Method:', form.method],
-          [form.method === 'Card' ? 'Card (masked):' : form.method === 'UPI' ? 'UPI ID:' : 'Wallet ID:', maskCredential(form.credential)],
-          ['Amount Paid:', `₹${Number(amount).toLocaleString()}`],
-          ['Status:', 'SUCCESS'],
-        ];
-        lines.forEach(([label, value]) => {
-          doc.setFont(undefined, 'bold');
-          doc.text(label, 20, y);
-          doc.setFont(undefined, 'normal');
-          doc.text(String(value), 85, y);
-          y += 9;
-        });
-        y += 8;
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text('This is a system-generated receipt for a simulated payment.', 105, y, { align: 'center' });
-        doc.text('For assistance contact support@wanderlite.com', 105, y + 6, { align: 'center' });
-        doc.save(`WanderLite_Receipt_${booking?.booking_ref || 'WL'}.pdf`);
-      } catch (_) { /* ignore */ }
-      setSuccess(true);
+      console.error('Payment confirm failed:', err?.response?.status, err?.response?.data || err?.message);
       setSubmitting(false);
-      navigate('/receipt', { state: { receiptUrl: null, bookingRef: booking?.booking_ref || 'WL', booking, payer: { ...form } } });
+      alert(`Payment failed to confirm on server. ${err?.response?.data?.detail || ''}`.trim());
+      return;
     }
   };
 

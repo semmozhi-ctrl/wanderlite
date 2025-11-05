@@ -176,7 +176,7 @@ const Ticket = () => {
         <div className="mt-6 flex gap-3">
           {state?.ticketUrl && (
             <Button asChild>
-              <a href={`/${state.ticketUrl}`} target="_blank" rel="noreferrer">Download PDF Ticket</a>
+              <a href={`${(process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8001').replace(/\/$/, '')}${state.ticketUrl.startsWith('/') ? state.ticketUrl : '/' + state.ticketUrl}`} target="_blank" rel="noreferrer">Download PDF Ticket</a>
             </Button>
           )}
           <Button variant="outline" onClick={() => navigate('/trip-history')}>Trip History</Button>

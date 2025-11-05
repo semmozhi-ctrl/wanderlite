@@ -15,6 +15,15 @@ const Receipt = () => {
   const serviceType = state?.serviceType || 'Flight';
   const serviceDetails = state?.serviceDetails || null;
 
+  // Resolve backend base for document links
+  const docBase = (process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8001').replace(/\/$/, '');
+  const toAbs = (u) => {
+    if (!u) return null;
+    if (/^https?:\/\//i.test(u)) return u;
+    return `${docBase}${u.startsWith('/') ? u : '/' + u}`;
+  };
+  const ticketBtnLabel = serviceType === 'Hotel' ? 'Download Hotel Voucher' : 'Download Ticket / Voucher';
+
   return (
     <div className="min-h-screen pt-24 pb-16 bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -64,15 +73,15 @@ const Receipt = () => {
           )}
           {ticketUrl && (
             <Button asChild className="w-full max-w-sm h-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-              <a href={`/${ticketUrl}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2">
+              <a href={toAbs(ticketUrl)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2">
                 <Ticket className="w-5 h-5" />
-                Download Ticket / Voucher
+                {ticketBtnLabel}
               </a>
             </Button>
           )}
           {receiptUrl && (
             <Button asChild variant="outline" className="w-full max-w-sm h-12 border-green-600 text-green-600 hover:bg-green-50">
-              <a href={`/${receiptUrl}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2">
+              <a href={toAbs(receiptUrl)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2">
                 <FileText className="w-5 h-5" />
                 Download Payment Receipt
               </a>

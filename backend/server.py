@@ -684,7 +684,7 @@ def _generate_flight_ticket_pdf(service_data: dict, booking_ref: str, passenger_
     destination = service_data.get('destination', 'N/A')
     pdf.cell(70, 10, origin, 0, 0, 'C')
     pdf.set_font('Arial', '', 16)
-    pdf.cell(50, 10, '✈', 0, 0, 'C')
+    pdf.cell(50, 10, '->', 0, 0, 'C')
     pdf.set_font('Arial', 'B', 18)
     pdf.cell(70, 10, destination, 0, 1, 'C')
     
@@ -851,7 +851,7 @@ def _generate_flight_ticket_pdf(service_data: dict, booking_ref: str, passenger_
     except:
         pass
     
-    return str(file_path.relative_to(upload_dir))
+    return f"/uploads/{str(file_path.relative_to(upload_dir))}"
 
 
 def _generate_hotel_voucher_pdf(service_data: dict, booking_ref: str, guest_info: dict, upload_dir: Path) -> str:
@@ -886,10 +886,9 @@ def _generate_hotel_voucher_pdf(service_data: dict, booking_ref: str, guest_info
     
     # Rating
     rating = service_data.get('rating', 0)
-    stars = '★' * int(rating) + '☆' * (5 - int(rating))
     pdf.set_font('Arial', '', 12)
     pdf.set_xy(10, y + 10)
-    pdf.cell(0, 6, f"{stars} ({rating}/5)", 0, 1)
+    pdf.cell(0, 6, f"Rating: {rating}/5", 0, 1)
     
     # Location
     pdf.set_xy(10, y + 18)
@@ -970,7 +969,7 @@ def _generate_hotel_voucher_pdf(service_data: dict, booking_ref: str, guest_info
         pass
 
     pdf.output(str(file_path))
-    return str(file_path.relative_to(upload_dir))
+    return f"/uploads/{str(file_path.relative_to(upload_dir))}"
 
 
 def _generate_restaurant_reservation_pdf(service_data: dict, booking_ref: str, guest_info: dict, upload_dir: Path) -> str:
@@ -1009,9 +1008,8 @@ def _generate_restaurant_reservation_pdf(service_data: dict, booking_ref: str, g
     pdf.cell(0, 6, f"Cuisine: {service_data.get('cuisine', 'Multi-cuisine')}", 0, 1)
     
     rating = service_data.get('rating', 0)
-    stars = '★' * int(rating) + '☆' * (5 - int(rating))
     pdf.set_xy(10, y + 18)
-    pdf.cell(0, 6, f"Rating: {stars} ({rating}/5)", 0, 1)
+    pdf.cell(0, 6, f"Rating: {rating}/5", 0, 1)
     
     # Guest Details
     y += 35
@@ -1096,7 +1094,7 @@ def _generate_restaurant_reservation_pdf(service_data: dict, booking_ref: str, g
         pass
 
     pdf.output(str(file_path))
-    return str(file_path.relative_to(upload_dir))
+    return f"/uploads/{str(file_path.relative_to(upload_dir))}"
 
 
 def _generate_receipt_pdf(payload: PaymentRequest, upload_dir: Path) -> str:
@@ -1142,13 +1140,278 @@ def _generate_receipt_pdf(payload: PaymentRequest, upload_dir: Path) -> str:
     row('Phone:', payload.phone)
     row('Payment Method:', payload.method)
     row('Credential:', _mask_credential(payload.method, payload.credential))
-    row('Amount Paid:', f"₹{(payload.amount or 0):,.2f}")
+    row('Amount Paid:', f"INR {(payload.amount or 0):,.2f}")
     row('Status:', 'SUCCESS')
 
     pdf.ln(6)
     pdf.set_text_color(100, 100, 100)
     pdf.set_font('Arial', '', 10)
     pdf.multi_cell(0, 6, 'This is a system-generated receipt for a simulated payment. For assistance contact support@wanderlite.com')
+
+    pdf.output(str(file_path))
+    return f"/uploads/receipts/{filename}"
+
+def _generate_hotel_receipt_pdf(service_data: dict, booking_ref: str, guest_info: dict, amount: float, currency: str, upload_dir: Path) -> str:
+    """Generate a rich, branded hotel stay receipt PDF. Returns an absolute '/uploads/receipts/..' URL path."""
+    receipts_dir = upload_dir / 'receipts'
+    receipts_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"hotel_receipt_{booking_ref}.pdf"
+    file_path = receipts_dir / filename
+
+    pdf = FPDF()
+    pdf.add_page()
+
+    # Header branding
+    pdf.set_fill_color(102, 51, 153)  # Purple brand for hotel
+    pdf.rect(0, 0, 210, 28, 'F')
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font('Arial', 'B', 16)
+    pdf.set_xy(10, 8)
+    pdf.cell(0, 10, 'WanderLite - Hotel Receipt', 0, 1, 'L')
+
+    # Receipt meta
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font('Arial', '', 11)
+    y = 40
+    pdf.set_xy(10, y)
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 7, 'Receipt Details', 0, 1)
+    pdf.set_font('Arial', '', 11)
+    def row(lbl: str, val: str):
+        nonlocal y
+        pdf.set_xy(10, y)
+        pdf.set_font('Arial', 'B', 11)
+        pdf.cell(45, 7, lbl)
+        pdf.set_font('Arial', '', 11)
+        pdf.cell(0, 7, val, 0, 1)
+        y += 7
+
+    issue_date = datetime.now().strftime('%Y-%m-%d %H:%M')
+    row('Receipt No.:', booking_ref)
+    row('Issue Date:', issue_date)
+
+    # Guest & Booker
+    y += 3
+    pdf.set_xy(10, y)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.rect(10, y, 190, 8, 'F')
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(0, 8, 'Guest & Booker', 0, 1)
+    y += 12
+    row('Name:', str(guest_info.get('full_name') or guest_info.get('fullName') or 'N/A'))
+    row('Email:', str(guest_info.get('email') or 'N/A'))
+    row('Phone:', str(guest_info.get('phone') or 'N/A'))
+
+    # Hotel & Stay details
+    y += 3
+    pdf.set_xy(10, y)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.rect(10, y, 190, 8, 'F')
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(0, 8, 'Hotel & Stay', 0, 1)
+    y += 12
+    hotel_name = service_data.get('name') or service_data.get('hotel_name') or 'Hotel'
+    location = service_data.get('location') or service_data.get('destination') or 'N/A'
+    rating = service_data.get('rating') or service_data.get('stars') or ''
+    check_in = service_data.get('check_in') or service_data.get('checkIn') or ''
+    check_out = service_data.get('check_out') or service_data.get('checkOut') or ''
+    nights = service_data.get('nights') or service_data.get('nights_count') or ''
+    guests = service_data.get('guests') or 1
+    room_type = service_data.get('room_type') or service_data.get('roomType') or 'Standard'
+
+    row('Hotel:', f"{hotel_name}")
+    row('Location:', f"{location}")
+    if rating:
+        row('Rating:', f"{rating}/5")
+    row('Check-in:', str(check_in))
+    row('Check-out:', str(check_out))
+    row('Nights:', str(nights))
+    row('Guests:', str(guests))
+    row('Room Type:', str(room_type))
+
+    # Price breakdown
+    y += 3
+    pdf.set_xy(10, y)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.rect(10, y, 190, 8, 'F')
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(0, 8, 'Price Breakdown', 0, 1)
+    y += 10
+    pdf.set_font('Arial', '', 11)
+    price_per_night = float(service_data.get('price_per_night') or 0)
+    nights_val = int(nights or 1)
+    subtotal = price_per_night * nights_val
+    taxes = round(subtotal * 0.10, 2)  # 10% illustrative taxes
+    fees = round(subtotal * 0.05, 2)   # 5% service fee
+    computed_total = round(subtotal + taxes + fees, 2)
+    # Prefer provided amount if present
+    total_amount = float(amount or computed_total)
+    cur = currency or service_data.get('currency') or 'INR'
+
+    def money(v: float) -> str:
+        try:
+            return f"INR {v:,.2f}" if cur.upper() == 'INR' else f"{cur} {v:,.2f}"
+        except Exception:
+            return str(v)
+
+    # 2-column breakdown
+    pdf.set_xy(12, y)
+    pdf.cell(90, 7, f"Room ({nights_val} night(s))", 0, 0)
+    pdf.cell(0, 7, money(subtotal), 0, 1, 'R')
+    y += 7
+    pdf.set_xy(12, y)
+    pdf.cell(90, 7, "Taxes (10%)", 0, 0)
+    pdf.cell(0, 7, money(taxes), 0, 1, 'R')
+    y += 7
+    pdf.set_xy(12, y)
+    pdf.cell(90, 7, "Service Fee (5%)", 0, 0)
+    pdf.cell(0, 7, money(fees), 0, 1, 'R')
+    y += 7
+    pdf.set_font('Arial', 'B', 12)
+    pdf.set_xy(12, y)
+    pdf.cell(90, 8, "Total Paid", 0, 0)
+    pdf.cell(0, 8, money(total_amount), 0, 1, 'R')
+    y += 10
+
+    # Payment details
+    pdf.set_xy(10, y)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.rect(10, y, 190, 8, 'F')
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(0, 8, 'Payment', 0, 1)
+    y += 12
+    method = guest_info.get('method') or 'Card'
+    credential = guest_info.get('credential') or ''
+    masked = _mask_credential(method, credential)
+    row('Method:', method)
+    row('Credential:', masked)
+
+    # QR verification
+    try:
+        verify_url = _build_qr_verification_url(booking_ref, 'hotel')
+        qr = qrcode.QRCode(version=1, box_size=6, border=2)
+        qr.add_data(verify_url)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_temp_path = receipts_dir / f"qr_{booking_ref}.png"
+        qr_img.save(str(qr_temp_path))
+        pdf.image(str(qr_temp_path), x=165, y=10, w=30, h=30)
+        try:
+            qr_temp_path.unlink()
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    # Footer note
+    y = max(y + 6, 250)
+    pdf.set_xy(10, y)
+    pdf.set_text_color(100, 100, 100)
+    pdf.set_font('Arial', 'I', 9)
+    pdf.multi_cell(0, 5, '* This is an electronically generated receipt. For queries, contact support@wanderlite.com')
+
+    pdf.output(str(file_path))
+    return f"/uploads/receipts/{filename}"
+
+def _generate_restaurant_receipt_pdf(service_data: dict, booking_ref: str, guest_info: dict, amount: float, currency: str, upload_dir: Path) -> str:
+    """Generate a branded restaurant reservation receipt PDF. Returns an absolute '/uploads/receipts/..' URL path."""
+    receipts_dir = upload_dir / 'receipts'
+    receipts_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"restaurant_receipt_{booking_ref}.pdf"
+    file_path = receipts_dir / filename
+
+    pdf = FPDF()
+    pdf.add_page()
+
+    # Header
+    pdf.set_fill_color(230, 126, 34)  # Orange
+    pdf.rect(0, 0, 210, 28, 'F')
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font('Arial', 'B', 16)
+    pdf.set_xy(10, 8)
+    pdf.cell(0, 10, 'WanderLite - Dining Receipt', 0, 1, 'L')
+
+    pdf.set_text_color(0, 0, 0)
+    y = 40
+    def row(lbl: str, val: str):
+        nonlocal y
+        pdf.set_xy(10, y)
+        pdf.set_font('Arial', 'B', 11)
+        pdf.cell(45, 7, lbl)
+        pdf.set_font('Arial', '', 11)
+        pdf.cell(0, 7, val, 0, 1)
+        y += 7
+
+    row('Receipt No.:', booking_ref)
+    row('Issue Date:', datetime.now().strftime('%Y-%m-%d %H:%M'))
+    row('Guest:', str(guest_info.get('full_name') or 'N/A'))
+    row('Email:', str(guest_info.get('email') or 'N/A'))
+    row('Phone:', str(guest_info.get('phone') or 'N/A'))
+
+    # Restaurant details
+    y += 3
+    pdf.set_xy(10, y)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.rect(10, y, 190, 8, 'F')
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(0, 8, 'Reservation', 0, 1)
+    y += 12
+    name = service_data.get('name', 'Restaurant')
+    cuisine = service_data.get('cuisine', '')
+    reservation_time = service_data.get('reservation_time') or service_data.get('reservationDate') or service_data.get('timeSlot') or 'TBA'
+    guests = service_data.get('guests') or 2
+    row('Restaurant:', name)
+    if cuisine:
+        row('Cuisine:', cuisine)
+    row('Guests:', str(guests))
+    row('Date & Time:', str(reservation_time))
+
+    # Payment summary
+    y += 3
+    pdf.set_xy(10, y)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.rect(10, y, 190, 8, 'F')
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(0, 8, 'Payment', 0, 1)
+    y += 12
+    method = guest_info.get('method') or 'Card'
+    credential = guest_info.get('credential') or ''
+    masked = _mask_credential(method, credential)
+    cur = currency or service_data.get('currency') or 'INR'
+    def money(v: float) -> str:
+        try:
+            return f"INR {v:,.2f}" if cur.upper() == 'INR' else f"{cur} {v:,.2f}"
+        except Exception:
+            return str(v)
+    row('Amount Paid:', money(float(amount or 0)))
+    row('Method:', method)
+    row('Credential:', masked)
+
+    # QR
+    try:
+        verify_url = _build_qr_verification_url(booking_ref, 'restaurant')
+        qr = qrcode.QRCode(version=1, box_size=6, border=2)
+        qr.add_data(verify_url)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_temp_path = receipts_dir / f"qr_{booking_ref}.png"
+        qr_img.save(str(qr_temp_path))
+        pdf.image(str(qr_temp_path), x=165, y=10, w=30, h=30)
+        try:
+            qr_temp_path.unlink()
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    # Footer
+    y = max(y + 6, 250)
+    pdf.set_xy(10, y)
+    pdf.set_text_color(100, 100, 100)
+    pdf.set_font('Arial', 'I', 9)
+    pdf.multi_cell(0, 5, '* Reservation policies may apply. Contact the restaurant for changes.')
 
     pdf.output(str(file_path))
     return f"/uploads/receipts/{filename}"
@@ -1170,28 +1433,36 @@ async def confirm_payment(payload: PaymentRequest, db: Session = Depends(get_db)
         
         # Generate appropriate ticket/voucher based on service type
         ticket_url = None
+        receipt_url: Optional[str] = None
         if service_booking:
             import json
             service_data = json.loads(service_booking.service_json)
             guest_info = {
                 'full_name': payload.full_name,
                 'email': payload.email,
-                'phone': payload.phone
+                'phone': payload.phone,
+                'method': payload.method,
+                'credential': payload.credential,
             }
             
             if service_booking.service_type == 'flight':
                 ticket_url = _generate_flight_ticket_pdf(service_data, booking_ref, guest_info, upload_dir)
+                # For flights we keep the generic payment receipt as well
             elif service_booking.service_type == 'hotel':
+                # Generate a rich hotel receipt and also provide a hotel voucher PDF as e-ticket
+                receipt_url = _generate_hotel_receipt_pdf(service_data, booking_ref, guest_info, payload.amount, payload.__dict__.get('currency', 'INR'), upload_dir)
                 ticket_url = _generate_hotel_voucher_pdf(service_data, booking_ref, guest_info, upload_dir)
             elif service_booking.service_type == 'restaurant':
-                ticket_url = _generate_restaurant_reservation_pdf(service_data, booking_ref, guest_info, upload_dir)
+                # Generate a branded dining receipt
+                receipt_url = _generate_restaurant_receipt_pdf(service_data, booking_ref, guest_info, payload.amount, payload.__dict__.get('currency', 'INR'), upload_dir)
             
             # Update service booking status to Confirmed
             service_booking.status = 'Confirmed'
             db.commit()
         
-        # Always generate payment receipt
-        receipt_url = _generate_receipt_pdf(payload, upload_dir)
+        # Generate a generic payment receipt only if not already generated a specialized one
+        if not receipt_url:
+            receipt_url = _generate_receipt_pdf(payload, upload_dir)
         
         # Save receipt record to database
         receipt_record = PaymentReceiptModel(
@@ -2228,7 +2499,7 @@ class ChatRequest(BaseModel):
 def _summarize_flights(origin: str, destination: str, db_data: List[dict]) -> str:
     lines = [f"Here are sample flights from {origin} to {destination}:"]
     for f in db_data[:3]:
-        lines.append(f"- {f['airline']} {f['flight_number']} {f['departure_time'][11:16]}→{f['arrival_time'][11:16]} | {f['duration']} | ₹{f['price']}")
+        lines.append(f"- {f['airline']} {f['flight_number']} {f['departure_time'][11:16]}->{f['arrival_time'][11:16]} | {f['duration']} | INR {f['price']}")
     return "\n".join(lines)
 
 @api_router.post("/ai/chat")
@@ -2262,7 +2533,7 @@ async def ai_chat(req: ChatRequest):
             hotels = _generate_mock_hotels(dest, None, None, 2, None, None)
             top = hotels[:3]
             ans = "Top hotels in {d}:\n".format(d=dest)
-            ans += "\n".join([f"- {h['name']} ({h['rating']}/5) ₹{h['price_per_night']}/night" for h in top])
+            ans += "\n".join([f"- {h['name']} ({h['rating']}/5) INR {h['price_per_night']}/night" for h in top])
             return { 'answer': ans }
 
         if 'restaurant' in user_lower or 'dining' in user_lower:
@@ -2270,7 +2541,7 @@ async def ai_chat(req: ChatRequest):
             restaurants = _generate_mock_restaurants(dest, None, None)
             top = restaurants[:3]
             ans = "Popular restaurants in {d}:\n".format(d=dest)
-            ans += "\n".join([f"- {r['name']} ({r['cuisine']}) avg ₹{r['average_cost']}" for r in top])
+            ans += "\n".join([f"- {r['name']} ({r['cuisine']}) avg INR {r['average_cost']}" for r in top])
             return { 'answer': ans }
     except Exception:
         pass
