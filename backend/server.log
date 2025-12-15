@@ -1,0 +1,53 @@
+nohup: ignoring input
+WARNING:root:No ENCRYPTION_KEY found in .env, using generated key (not persistent!)
+INFO:     Started server process [159073]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:56880 - "POST /api/bus/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48456 - "GET /api/bus/seats/1/2025-01-20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48898 - "GET /api/bus/cities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39000 - "OPTIONS /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "OPTIONS /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39000 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 39018) - "WebSocket /ws/notifications/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzZW1tb3poaTEyMTIyMDA1QGdtYWlsLmNvbSJ9.lCG4PdrSOvoBWu5FzekP__ifYf-QuX4FSehh_afyb2c" [accepted]
+INFO:     127.0.0.1:39016 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39000 - "OPTIONS /api/notifications HTTP/1.1" 200 OK
+INFO:     connection open
+INFO:     127.0.0.1:39034 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39000 - "OPTIONS /api/trips HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "GET /api/notifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39034 - "OPTIONS /api/trips HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "GET /api/trips HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39034 - "GET /api/trips HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39034 - "OPTIONS /api/kyc/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "OPTIONS /api/kyc/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "GET /api/kyc/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39034 - "GET /api/kyc/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39034 - "OPTIONS /api/transactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39034 - "OPTIONS /api/transactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "GET /api/transactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "GET /api/transactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "OPTIONS /api/destinations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39034 - "OPTIONS /api/destinations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39034 - "GET /api/destinations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39000 - "GET /api/destinations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39016 - "GET /api/bus/cities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58264 - "GET /api/bus/cities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56626 - "OPTIONS /api/bus/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56626 - "POST /api/bus/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35434 - "GET /api/bus/seats/2/2025-12-12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35444 - "GET /api/bus/seats/2/2025-12-12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42872 - "OPTIONS /api/bus/seats/lock HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42872 - "POST /api/bus/seats/lock HTTP/1.1" 422 Unprocessable Entity
+INFO:     connection closed
+INFO:     127.0.0.1:46866 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46878 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 46884) - "WebSocket /ws/notifications/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzZW1tb3poaTEyMTIyMDA1QGdtYWlsLmNvbSJ9.lCG4PdrSOvoBWu5FzekP__ifYf-QuX4FSehh_afyb2c" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:46878 - "GET /api/bus/seats/2/2025-12-12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46866 - "GET /api/notifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46896 - "GET /api/bus/seats/2/2025-12-12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34736 - "GET /api/bus/seats/2/2025-12-12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37556 - "POST /api/bus/seats/lock HTTP/1.1" 422 Unprocessable Entity

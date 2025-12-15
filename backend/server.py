@@ -444,6 +444,181 @@ class PlatformSettingModel(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+# =============================
+# Bus Booking Database Models
+# =============================
+class BusCityModel(Base):
+    __tablename__ = "bus_cities"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    state = Column(String(100), nullable=True)
+    country = Column(String(100), default="India")
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class BusRouteModel(Base):
+    __tablename__ = "bus_routes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    from_city_id = Column(Integer, ForeignKey("bus_cities.id"), nullable=False)
+    to_city_id = Column(Integer, ForeignKey("bus_cities.id"), nullable=False)
+    distance_km = Column(Float, nullable=True)
+    estimated_duration_mins = Column(Integer, nullable=True)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class BusOperatorModel(Base):
+    __tablename__ = "bus_operators"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    logo_url = Column(String(500), nullable=True)
+    rating = Column(Float, default=4.0)
+    total_reviews = Column(Integer, default=0)
+    contact_phone = Column(String(20), nullable=True)
+    contact_email = Column(String(255), nullable=True)
+    cancellation_policy = Column(Text, nullable=True)
+    amenities = Column(Text, nullable=True)  # JSON: wifi, charging, water, blanket, etc.
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class BusModel(Base):
+    __tablename__ = "buses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    operator_id = Column(Integer, ForeignKey("bus_operators.id"), nullable=False)
+    bus_number = Column(String(50), nullable=False)
+    bus_type = Column(String(50), nullable=False)  # AC Sleeper, Non-AC Seater, AC Seater, etc.
+    total_seats = Column(Integer, nullable=False)
+    seat_layout = Column(String(20), default="2+2")  # 2+2, 2+1, sleeper
+    has_upper_deck = Column(Integer, default=0)
+    amenities = Column(Text, nullable=True)  # JSON array
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class BusScheduleModel(Base):
+    __tablename__ = "bus_schedules"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bus_id = Column(Integer, ForeignKey("buses.id"), nullable=False)
+    route_id = Column(Integer, ForeignKey("bus_routes.id"), nullable=False)
+    departure_time = Column(String(10), nullable=False)  # HH:MM format
+    arrival_time = Column(String(10), nullable=False)    # HH:MM format
+    duration_mins = Column(Integer, nullable=True)
+    days_of_week = Column(String(50), default="0,1,2,3,4,5,6")  # 0=Monday, 6=Sunday
+    base_price = Column(Float, nullable=False)
+    is_night_bus = Column(Integer, default=0)
+    next_day_arrival = Column(Integer, default=0)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class BusSeatModel(Base):
+    __tablename__ = "bus_seats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bus_id = Column(Integer, ForeignKey("buses.id"), nullable=False)
+    seat_number = Column(String(10), nullable=False)  # L1, L2, U1, U2, 1A, 1B, etc.
+    seat_type = Column(String(20), default="seater")  # seater, sleeper, semi-sleeper
+    deck = Column(String(10), default="lower")  # lower, upper
+    row_number = Column(Integer, nullable=True)
+    column_number = Column(Integer, nullable=True)
+    position = Column(String(20), default="window")  # window, aisle, middle
+    price_modifier = Column(Float, default=0)  # Extra charge for premium seats
+    is_female_only = Column(Integer, default=0)
+    is_active = Column(Integer, default=1)
+
+
+class BusBoardingPointModel(Base):
+    __tablename__ = "bus_boarding_points"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    schedule_id = Column(Integer, ForeignKey("bus_schedules.id"), nullable=False)
+    city_id = Column(Integer, ForeignKey("bus_cities.id"), nullable=False)
+    point_name = Column(String(255), nullable=False)
+    address = Column(Text, nullable=True)
+    time = Column(String(10), nullable=False)  # HH:MM
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    point_type = Column(String(20), default="boarding")  # boarding, dropping
+    is_active = Column(Integer, default=1)
+
+
+class BusBookingModel(Base):
+    __tablename__ = "bus_bookings"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    schedule_id = Column(Integer, ForeignKey("bus_schedules.id"), nullable=False)
+    journey_date = Column(String(20), nullable=False)  # YYYY-MM-DD
+    pnr = Column(String(20), unique=True, nullable=False)
+    booking_status = Column(String(30), default="pending")  # pending, confirmed, cancelled, completed
+    total_amount = Column(Float, nullable=False)
+    discount_amount = Column(Float, default=0)
+    final_amount = Column(Float, nullable=False)
+    payment_status = Column(String(30), default="pending")  # pending, paid, refunded
+    payment_method = Column(String(30), nullable=True)
+    transaction_id = Column(String(100), nullable=True)
+    boarding_point_id = Column(Integer, ForeignKey("bus_boarding_points.id"), nullable=True)
+    dropping_point_id = Column(Integer, ForeignKey("bus_boarding_points.id"), nullable=True)
+    contact_name = Column(String(255), nullable=True)
+    contact_email = Column(String(255), nullable=True)
+    contact_phone = Column(String(20), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    refund_amount = Column(Float, nullable=True)
+    refund_status = Column(String(30), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class BusPassengerModel(Base):
+    __tablename__ = "bus_passengers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    booking_id = Column(String(36), ForeignKey("bus_bookings.id"), nullable=False)
+    seat_id = Column(Integer, ForeignKey("bus_seats.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    age = Column(Integer, nullable=False)
+    gender = Column(String(10), nullable=False)  # male, female, other
+    id_type = Column(String(50), nullable=True)  # aadhaar, passport, etc.
+    id_number = Column(String(100), nullable=True)
+    seat_price = Column(Float, nullable=False)
+
+
+class BusSeatAvailabilityModel(Base):
+    __tablename__ = "bus_seat_availability"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    schedule_id = Column(Integer, ForeignKey("bus_schedules.id"), nullable=False)
+    seat_id = Column(Integer, ForeignKey("bus_seats.id"), nullable=False)
+    journey_date = Column(String(20), nullable=False)  # YYYY-MM-DD
+    status = Column(String(20), default="available")  # available, booked, locked, blocked
+    locked_by = Column(String(36), nullable=True)  # user_id who locked
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    booking_id = Column(String(36), ForeignKey("bus_bookings.id"), nullable=True)
+
+
+class BusLiveTrackingModel(Base):
+    __tablename__ = "bus_live_tracking"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    schedule_id = Column(Integer, ForeignKey("bus_schedules.id"), nullable=False)
+    journey_date = Column(String(20), nullable=False)
+    current_latitude = Column(Float, nullable=True)
+    current_longitude = Column(Float, nullable=True)
+    speed_kmph = Column(Float, nullable=True)
+    status = Column(String(30), default="not_started")  # not_started, departed, en_route, arrived
+    last_updated = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    eta_mins = Column(Integer, nullable=True)
+
+
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
@@ -760,6 +935,145 @@ class AuditLogItem(BaseModel):
     details: Optional[str] = None
     ip_address: Optional[str] = None
     created_at: datetime
+
+
+# =============================
+# Bus Booking Pydantic Schemas
+# =============================
+class BusCityCreate(BaseModel):
+    name: str
+    state: Optional[str] = None
+    country: str = "India"
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class BusCityResponse(BaseModel):
+    id: int
+    name: str
+    state: Optional[str] = None
+    country: str
+    is_active: int
+
+
+class BusOperatorCreate(BaseModel):
+    name: str
+    logo_url: Optional[str] = None
+    rating: float = 4.0
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    cancellation_policy: Optional[str] = None
+    amenities: Optional[str] = None  # JSON string
+
+
+class BusRouteCreate(BaseModel):
+    from_city_id: int
+    to_city_id: int
+    distance_km: Optional[float] = None
+    estimated_duration_mins: Optional[int] = None
+
+
+class BusCreate(BaseModel):
+    operator_id: int
+    bus_number: str
+    bus_type: str
+    total_seats: int
+    seat_layout: str = "2+2"
+    has_upper_deck: int = 0
+    amenities: Optional[str] = None
+
+
+class BusScheduleCreate(BaseModel):
+    bus_id: int
+    route_id: int
+    departure_time: str
+    arrival_time: str
+    duration_mins: Optional[int] = None
+    days_of_week: str = "0,1,2,3,4,5,6"
+    base_price: float
+    is_night_bus: int = 0
+    next_day_arrival: int = 0
+
+
+class BusBoardingPointCreate(BaseModel):
+    schedule_id: int
+    city_id: int
+    point_name: str
+    address: Optional[str] = None
+    time: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    point_type: str = "boarding"
+
+
+class BusSearchRequest(BaseModel):
+    from_city_id: int
+    to_city_id: int
+    journey_date: str  # YYYY-MM-DD
+    return_date: Optional[str] = None
+
+
+class BusSeatSelection(BaseModel):
+    seat_id: int
+    schedule_id: int
+    journey_date: str
+
+
+class BusSeatLockRequest(BaseModel):
+    schedule_id: int
+    journey_date: str
+    seat_ids: List[int]
+
+
+class BusPassengerInfo(BaseModel):
+    seat_id: int
+    name: str
+    age: int
+    gender: str
+    id_type: Optional[str] = None
+    id_number: Optional[str] = None
+
+
+class BusBookingCreate(BaseModel):
+    schedule_id: int
+    journey_date: str
+    passengers: List[BusPassengerInfo]
+    boarding_point_id: int
+    dropping_point_id: int
+    contact_name: str
+    contact_email: str
+    contact_phone: str
+    payment_method: str = "mock"
+
+
+class BusTicketResponse(BaseModel):
+    id: str
+    pnr: str
+    booking_status: str
+    journey_date: str
+    total_amount: float
+    final_amount: float
+    payment_status: str
+    operator_name: str
+    bus_type: str
+    bus_number: str
+    from_city: str
+    to_city: str
+    departure_time: str
+    arrival_time: str
+    boarding_point: str
+    boarding_time: str
+    dropping_point: str
+    dropping_time: str
+    passengers: List[dict]
+    amenities: List[str]
+    cancellation_policy: str
+    created_at: datetime
+
+
+class BusCancellationRequest(BaseModel):
+    booking_id: str
+    reason: Optional[str] = None
 
 
 class Trip(BaseModel):
@@ -5118,6 +5432,926 @@ async def list_receipts(
     ]
 
 
+# =============================
+# Bus Booking API Router
+# =============================
+bus_router = APIRouter(prefix="/api/bus", tags=["bus"])
+
+
+def generate_pnr():
+    """Generate a unique PNR number"""
+    import random
+    import string
+    prefix = "WL"
+    chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    return f"{prefix}{chars}"
+
+
+# Cities endpoints
+@bus_router.get("/cities")
+async def get_bus_cities(
+    search: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get list of bus cities"""
+    query = db.query(BusCityModel).filter(BusCityModel.is_active == 1)
+    if search:
+        query = query.filter(BusCityModel.name.ilike(f"%{search}%"))
+    cities = query.order_by(BusCityModel.name).all()
+    return [{"id": c.id, "name": c.name, "state": c.state} for c in cities]
+
+
+# Search buses
+@bus_router.post("/search")
+async def search_buses(
+    request: BusSearchRequest,
+    db: Session = Depends(get_db)
+):
+    """Search available buses for a route and date"""
+    # Find the route
+    route = db.query(BusRouteModel).filter(
+        BusRouteModel.from_city_id == request.from_city_id,
+        BusRouteModel.to_city_id == request.to_city_id,
+        BusRouteModel.is_active == 1
+    ).first()
+    
+    if not route:
+        return {"buses": [], "message": "No routes found"}
+    
+    # Get day of week (0=Monday, 6=Sunday) for Python, but also check 1-7 format
+    from datetime import datetime as dt
+    journey_dt = dt.strptime(request.journey_date, "%Y-%m-%d")
+    day_of_week = journey_dt.weekday()  # 0-6
+    day_of_week_1based = day_of_week + 1  # 1-7 format
+    
+    # Find schedules for this route on the selected day (check both formats)
+    schedules = db.query(BusScheduleModel).filter(
+        BusScheduleModel.route_id == route.id,
+        BusScheduleModel.is_active == 1
+    ).filter(
+        (BusScheduleModel.days_of_week.contains(str(day_of_week))) | 
+        (BusScheduleModel.days_of_week.contains(str(day_of_week_1based)))
+    ).all()
+    
+    results = []
+    from_city = db.query(BusCityModel).filter(BusCityModel.id == request.from_city_id).first()
+    to_city = db.query(BusCityModel).filter(BusCityModel.id == request.to_city_id).first()
+    
+    for schedule in schedules:
+        bus = db.query(BusModel).filter(BusModel.id == schedule.bus_id).first()
+        operator = db.query(BusOperatorModel).filter(BusOperatorModel.id == bus.operator_id).first()
+        
+        # Count available seats
+        total_seats = db.query(BusSeatModel).filter(BusSeatModel.bus_id == bus.id, BusSeatModel.is_active == 1).count()
+        booked_seats = db.query(BusSeatAvailabilityModel).filter(
+            BusSeatAvailabilityModel.schedule_id == schedule.id,
+            BusSeatAvailabilityModel.journey_date == request.journey_date,
+            BusSeatAvailabilityModel.status.in_(["booked", "locked"])
+        ).count()
+        available_seats = total_seats - booked_seats
+        
+        # Get boarding points
+        boarding_points = db.query(BusBoardingPointModel).filter(
+            BusBoardingPointModel.schedule_id == schedule.id,
+            BusBoardingPointModel.point_type == "boarding",
+            BusBoardingPointModel.is_active == 1
+        ).all()
+        
+        dropping_points = db.query(BusBoardingPointModel).filter(
+            BusBoardingPointModel.schedule_id == schedule.id,
+            BusBoardingPointModel.point_type == "dropping",
+            BusBoardingPointModel.is_active == 1
+        ).all()
+        
+        results.append({
+            "schedule_id": schedule.id,
+            "bus_id": bus.id,
+            "operator_name": operator.name,
+            "operator_logo": operator.logo_url,
+            "operator_rating": operator.rating,
+            "bus_type": bus.bus_type,
+            "bus_number": bus.bus_number,
+            "seat_layout": bus.seat_layout,
+            "has_upper_deck": bus.has_upper_deck,
+            "departure_time": schedule.departure_time,
+            "arrival_time": schedule.arrival_time,
+            "duration_mins": schedule.duration_mins,
+            "is_night_bus": schedule.is_night_bus,
+            "next_day_arrival": schedule.next_day_arrival,
+            "base_price": schedule.base_price,
+            "available_seats": available_seats,
+            "total_seats": total_seats,
+            "amenities": json.loads(bus.amenities) if bus.amenities else [],
+            "cancellation_policy": operator.cancellation_policy,
+            "boarding_points": [{"id": bp.id, "name": bp.point_name, "time": bp.time, "address": bp.address} for bp in boarding_points],
+            "dropping_points": [{"id": dp.id, "name": dp.point_name, "time": dp.time, "address": dp.address} for dp in dropping_points],
+            "from_city": from_city.name if from_city else "",
+            "to_city": to_city.name if to_city else ""
+        })
+    
+    return {"buses": results, "total": len(results)}
+
+
+# Get seat layout for a bus
+@bus_router.get("/seats/{schedule_id}/{journey_date}")
+async def get_seat_layout(
+    schedule_id: int,
+    journey_date: str,
+    db: Session = Depends(get_db)
+):
+    """Get seat layout and availability for a schedule"""
+    try:
+        schedule = db.query(BusScheduleModel).filter(BusScheduleModel.id == schedule_id).first()
+        if not schedule:
+            raise HTTPException(status_code=404, detail="Schedule not found")
+        
+        bus = db.query(BusModel).filter(BusModel.id == schedule.bus_id).first()
+        if not bus:
+            raise HTTPException(status_code=404, detail="Bus not found")
+            
+        seats = db.query(BusSeatModel).filter(BusSeatModel.bus_id == bus.id, BusSeatModel.is_active == 1).all()
+        
+        seat_data = []
+        for seat in seats:
+            # Check availability
+            availability = db.query(BusSeatAvailabilityModel).filter(
+                BusSeatAvailabilityModel.schedule_id == schedule_id,
+                BusSeatAvailabilityModel.seat_id == seat.id,
+                BusSeatAvailabilityModel.journey_date == journey_date
+            ).first()
+            
+            status = "available"
+            if availability:
+                if availability.status == "booked":
+                    status = "booked"
+                elif availability.status == "locked":
+                    # Check if lock expired
+                    if availability.locked_until:
+                        # Handle both naive and aware datetimes
+                        lock_time = availability.locked_until
+                        now = datetime.now()
+                        if lock_time.tzinfo is not None:
+                            now = datetime.now(timezone.utc)
+                        if lock_time > now:
+                            status = "locked"
+                        else:
+                            status = "available"
+                    else:
+                        status = "available"
+                elif availability.status == "blocked":
+                    status = "blocked"
+            
+            seat_data.append({
+                "id": seat.id,
+                "seat_number": seat.seat_number,
+                "seat_type": seat.seat_type,
+                "deck": seat.deck,
+                "row": seat.row_number,
+                "column": seat.column_number,
+                "position": seat.position,
+                "price_modifier": float(seat.price_modifier) if seat.price_modifier else 0.0,
+                "is_female_only": seat.is_female_only,
+                "status": status,
+                "price": float(schedule.base_price) + (float(seat.price_modifier) if seat.price_modifier else 0.0)
+            })
+        
+        return {
+            "bus_type": bus.bus_type,
+            "seat_layout": bus.seat_layout,
+            "has_upper_deck": bus.has_upper_deck,
+            "total_seats": len(seats),
+            "base_price": float(schedule.base_price),
+            "seats": seat_data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_seat_layout: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Lock seats temporarily
+@bus_router.post("/seats/lock")
+async def lock_seats(
+    request: BusSeatLockRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Temporarily lock selected seats for 5 minutes"""
+    locked_seats = []
+    lock_until = datetime.now(timezone.utc) + timedelta(minutes=5)
+    
+    for seat_id in request.seat_ids:
+        # Check if seat is available
+        existing = db.query(BusSeatAvailabilityModel).filter(
+            BusSeatAvailabilityModel.schedule_id == request.schedule_id,
+            BusSeatAvailabilityModel.seat_id == seat_id,
+            BusSeatAvailabilityModel.journey_date == request.journey_date
+        ).first()
+        
+        if existing:
+            if existing.status == "booked":
+                raise HTTPException(status_code=400, detail=f"Seat already booked")
+            elif existing.status == "locked" and existing.locked_until > datetime.now(timezone.utc):
+                if existing.locked_by != current_user.id:
+                    raise HTTPException(status_code=400, detail=f"Seat is temporarily unavailable")
+            # Update lock
+            existing.status = "locked"
+            existing.locked_by = current_user.id
+            existing.locked_until = lock_until
+        else:
+            # Create new lock
+            availability = BusSeatAvailabilityModel(
+                schedule_id=request.schedule_id,
+                seat_id=seat_id,
+                journey_date=request.journey_date,
+                status="locked",
+                locked_by=current_user.id,
+                locked_until=lock_until
+            )
+            db.add(availability)
+        
+        locked_seats.append(seat_id)
+    
+    db.commit()
+    return {"locked_seats": locked_seats, "expires_at": lock_until.isoformat()}
+
+
+# Create booking
+@bus_router.post("/book")
+async def create_bus_booking(
+    booking: BusBookingCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a bus booking"""
+    schedule = db.query(BusScheduleModel).filter(BusScheduleModel.id == booking.schedule_id).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    bus = db.query(BusModel).filter(BusModel.id == schedule.bus_id).first()
+    operator = db.query(BusOperatorModel).filter(BusOperatorModel.id == bus.operator_id).first()
+    route = db.query(BusRouteModel).filter(BusRouteModel.id == schedule.route_id).first()
+    
+    # Calculate total amount
+    total_amount = 0
+    for passenger in booking.passengers:
+        seat = db.query(BusSeatModel).filter(BusSeatModel.id == passenger.seat_id).first()
+        if not seat:
+            raise HTTPException(status_code=400, detail=f"Invalid seat ID: {passenger.seat_id}")
+        seat_price = schedule.base_price + seat.price_modifier
+        total_amount += seat_price
+    
+    # Generate PNR
+    pnr = generate_pnr()
+    
+    # Create booking
+    new_booking = BusBookingModel(
+        user_id=current_user.id,
+        schedule_id=booking.schedule_id,
+        journey_date=booking.journey_date,
+        pnr=pnr,
+        booking_status="confirmed",
+        total_amount=total_amount,
+        discount_amount=0,
+        final_amount=total_amount,
+        payment_status="paid",  # Mock payment
+        payment_method=booking.payment_method,
+        transaction_id=f"TXN{uuid.uuid4().hex[:12].upper()}",
+        boarding_point_id=booking.boarding_point_id,
+        dropping_point_id=booking.dropping_point_id,
+        contact_name=booking.contact_name,
+        contact_email=booking.contact_email,
+        contact_phone=booking.contact_phone
+    )
+    db.add(new_booking)
+    db.flush()
+    
+    # Create passengers and mark seats as booked
+    for passenger in booking.passengers:
+        seat = db.query(BusSeatModel).filter(BusSeatModel.id == passenger.seat_id).first()
+        seat_price = schedule.base_price + seat.price_modifier
+        
+        # Create passenger record
+        new_passenger = BusPassengerModel(
+            booking_id=new_booking.id,
+            seat_id=passenger.seat_id,
+            name=passenger.name,
+            age=passenger.age,
+            gender=passenger.gender,
+            id_type=passenger.id_type,
+            id_number=passenger.id_number,
+            seat_price=seat_price
+        )
+        db.add(new_passenger)
+        
+        # Update seat availability
+        availability = db.query(BusSeatAvailabilityModel).filter(
+            BusSeatAvailabilityModel.schedule_id == booking.schedule_id,
+            BusSeatAvailabilityModel.seat_id == passenger.seat_id,
+            BusSeatAvailabilityModel.journey_date == booking.journey_date
+        ).first()
+        
+        if availability:
+            availability.status = "booked"
+            availability.booking_id = new_booking.id
+            availability.locked_by = None
+            availability.locked_until = None
+        else:
+            new_availability = BusSeatAvailabilityModel(
+                schedule_id=booking.schedule_id,
+                seat_id=passenger.seat_id,
+                journey_date=booking.journey_date,
+                status="booked",
+                booking_id=new_booking.id
+            )
+            db.add(new_availability)
+    
+    db.commit()
+    
+    return {"booking_id": new_booking.id, "pnr": pnr, "message": "Booking confirmed"}
+
+
+# Get booking details / ticket
+@bus_router.get("/booking/{booking_id}")
+async def get_bus_booking(
+    booking_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get bus booking details"""
+    booking = db.query(BusBookingModel).filter(
+        BusBookingModel.id == booking_id,
+        BusBookingModel.user_id == current_user.id
+    ).first()
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    schedule = db.query(BusScheduleModel).filter(BusScheduleModel.id == booking.schedule_id).first()
+    bus = db.query(BusModel).filter(BusModel.id == schedule.bus_id).first()
+    operator = db.query(BusOperatorModel).filter(BusOperatorModel.id == bus.operator_id).first()
+    route = db.query(BusRouteModel).filter(BusRouteModel.id == schedule.route_id).first()
+    from_city = db.query(BusCityModel).filter(BusCityModel.id == route.from_city_id).first()
+    to_city = db.query(BusCityModel).filter(BusCityModel.id == route.to_city_id).first()
+    
+    boarding_point = db.query(BusBoardingPointModel).filter(BusBoardingPointModel.id == booking.boarding_point_id).first()
+    dropping_point = db.query(BusBoardingPointModel).filter(BusBoardingPointModel.id == booking.dropping_point_id).first()
+    
+    passengers = db.query(BusPassengerModel).filter(BusPassengerModel.booking_id == booking.id).all()
+    passenger_list = []
+    for p in passengers:
+        seat = db.query(BusSeatModel).filter(BusSeatModel.id == p.seat_id).first()
+        passenger_list.append({
+            "name": p.name,
+            "age": p.age,
+            "gender": p.gender,
+            "seat_number": seat.seat_number if seat else "",
+            "seat_type": seat.seat_type if seat else "",
+            "seat_price": p.seat_price
+        })
+    
+    return {
+        "id": booking.id,
+        "pnr": booking.pnr,
+        "booking_status": booking.booking_status,
+        "journey_date": booking.journey_date,
+        "total_amount": booking.total_amount,
+        "discount_amount": booking.discount_amount,
+        "final_amount": booking.final_amount,
+        "payment_status": booking.payment_status,
+        "payment_method": booking.payment_method,
+        "transaction_id": booking.transaction_id,
+        "operator_name": operator.name,
+        "operator_logo": operator.logo_url,
+        "operator_rating": operator.rating,
+        "bus_type": bus.bus_type,
+        "bus_number": bus.bus_number,
+        "from_city": from_city.name,
+        "to_city": to_city.name,
+        "departure_time": schedule.departure_time,
+        "arrival_time": schedule.arrival_time,
+        "duration_mins": schedule.duration_mins,
+        "is_night_bus": schedule.is_night_bus,
+        "next_day_arrival": schedule.next_day_arrival,
+        "boarding_point": boarding_point.point_name if boarding_point else "",
+        "boarding_time": boarding_point.time if boarding_point else "",
+        "boarding_address": boarding_point.address if boarding_point else "",
+        "dropping_point": dropping_point.point_name if dropping_point else "",
+        "dropping_time": dropping_point.time if dropping_point else "",
+        "dropping_address": dropping_point.address if dropping_point else "",
+        "passengers": passenger_list,
+        "contact_name": booking.contact_name,
+        "contact_email": booking.contact_email,
+        "contact_phone": booking.contact_phone,
+        "amenities": json.loads(bus.amenities) if bus.amenities else [],
+        "cancellation_policy": operator.cancellation_policy,
+        "created_at": booking.created_at.isoformat() if booking.created_at else None
+    }
+
+
+# Get user's bus bookings
+@bus_router.get("/my-bookings")
+async def get_my_bus_bookings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all bus bookings for current user"""
+    bookings = db.query(BusBookingModel).filter(
+        BusBookingModel.user_id == current_user.id
+    ).order_by(BusBookingModel.created_at.desc()).all()
+    
+    results = []
+    for booking in bookings:
+        schedule = db.query(BusScheduleModel).filter(BusScheduleModel.id == booking.schedule_id).first()
+        bus = db.query(BusModel).filter(BusModel.id == schedule.bus_id).first()
+        operator = db.query(BusOperatorModel).filter(BusOperatorModel.id == bus.operator_id).first()
+        route = db.query(BusRouteModel).filter(BusRouteModel.id == schedule.route_id).first()
+        from_city = db.query(BusCityModel).filter(BusCityModel.id == route.from_city_id).first()
+        to_city = db.query(BusCityModel).filter(BusCityModel.id == route.to_city_id).first()
+        
+        passengers = db.query(BusPassengerModel).filter(BusPassengerModel.booking_id == booking.id).all()
+        
+        results.append({
+            "id": booking.id,
+            "pnr": booking.pnr,
+            "booking_status": booking.booking_status,
+            "journey_date": booking.journey_date,
+            "final_amount": booking.final_amount,
+            "operator_name": operator.name,
+            "bus_type": bus.bus_type,
+            "from_city": from_city.name,
+            "to_city": to_city.name,
+            "departure_time": schedule.departure_time,
+            "passenger_count": len(passengers),
+            "created_at": booking.created_at.isoformat() if booking.created_at else None
+        })
+    
+    return results
+
+
+# Cancel booking
+@bus_router.post("/cancel")
+async def cancel_bus_booking(
+    request: BusCancellationRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Cancel a bus booking"""
+    booking = db.query(BusBookingModel).filter(
+        BusBookingModel.id == request.booking_id,
+        BusBookingModel.user_id == current_user.id
+    ).first()
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking.booking_status == "cancelled":
+        raise HTTPException(status_code=400, detail="Booking already cancelled")
+    
+    if booking.booking_status == "completed":
+        raise HTTPException(status_code=400, detail="Cannot cancel completed journey")
+    
+    schedule = db.query(BusScheduleModel).filter(BusScheduleModel.id == booking.schedule_id).first()
+    
+    # Calculate refund based on time before departure
+    from datetime import datetime as dt
+    journey_dt = dt.strptime(f"{booking.journey_date} {schedule.departure_time}", "%Y-%m-%d %H:%M")
+    now = dt.now()
+    hours_before = (journey_dt - now).total_seconds() / 3600
+    
+    refund_percentage = 0
+    if hours_before > 24:
+        refund_percentage = 90
+    elif hours_before > 12:
+        refund_percentage = 50
+    elif hours_before > 6:
+        refund_percentage = 25
+    # No refund if less than 6 hours
+    
+    refund_amount = (booking.final_amount * refund_percentage) / 100
+    
+    # Update booking
+    booking.booking_status = "cancelled"
+    booking.cancelled_at = datetime.now(timezone.utc)
+    booking.refund_amount = refund_amount
+    booking.refund_status = "processed" if refund_amount > 0 else "no_refund"
+    
+    # Release seats
+    passengers = db.query(BusPassengerModel).filter(BusPassengerModel.booking_id == booking.id).all()
+    for passenger in passengers:
+        availability = db.query(BusSeatAvailabilityModel).filter(
+            BusSeatAvailabilityModel.booking_id == booking.id,
+            BusSeatAvailabilityModel.seat_id == passenger.seat_id
+        ).first()
+        if availability:
+            db.delete(availability)
+    
+    db.commit()
+    
+    return {
+        "message": "Booking cancelled",
+        "refund_percentage": refund_percentage,
+        "refund_amount": refund_amount,
+        "refund_status": booking.refund_status
+    }
+
+
+# Get live tracking
+@bus_router.get("/tracking/{booking_id}")
+async def get_bus_tracking(
+    booking_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get live tracking for a booked bus"""
+    booking = db.query(BusBookingModel).filter(
+        BusBookingModel.id == booking_id,
+        BusBookingModel.user_id == current_user.id
+    ).first()
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking.booking_status != "confirmed":
+        raise HTTPException(status_code=400, detail="Tracking only available for confirmed bookings")
+    
+    tracking = db.query(BusLiveTrackingModel).filter(
+        BusLiveTrackingModel.schedule_id == booking.schedule_id,
+        BusLiveTrackingModel.journey_date == booking.journey_date
+    ).first()
+    
+    if not tracking:
+        return {
+            "status": "not_started",
+            "message": "Bus tracking will be available once the journey starts"
+        }
+    
+    return {
+        "status": tracking.status,
+        "latitude": tracking.current_latitude,
+        "longitude": tracking.current_longitude,
+        "speed_kmph": tracking.speed_kmph,
+        "eta_mins": tracking.eta_mins,
+        "last_updated": tracking.last_updated.isoformat() if tracking.last_updated else None
+    }
+
+
+# Register bus router
+app.include_router(bus_router)
+
+
+# =============================
+# Admin Bus Management Endpoints
+# =============================
+@admin_router.get("/bus/cities")
+async def admin_get_cities(
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all bus cities"""
+    cities = db.query(BusCityModel).order_by(BusCityModel.name).all()
+    return [{"id": c.id, "name": c.name, "state": c.state, "is_active": c.is_active} for c in cities]
+
+
+@admin_router.post("/bus/cities")
+async def admin_create_city(
+    city: BusCityCreate,
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a new bus city"""
+    new_city = BusCityModel(
+        name=city.name,
+        state=city.state,
+        country=city.country,
+        latitude=city.latitude,
+        longitude=city.longitude
+    )
+    db.add(new_city)
+    db.commit()
+    return {"id": new_city.id, "message": "City created"}
+
+
+@admin_router.get("/bus/operators")
+async def admin_get_operators(
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all bus operators"""
+    operators = db.query(BusOperatorModel).order_by(BusOperatorModel.name).all()
+    return [{
+        "id": o.id,
+        "name": o.name,
+        "rating": o.rating,
+        "is_active": o.is_active,
+        "contact_phone": o.contact_phone,
+        "contact_email": o.contact_email
+    } for o in operators]
+
+
+@admin_router.post("/bus/operators")
+async def admin_create_operator(
+    operator: BusOperatorCreate,
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a new bus operator"""
+    new_operator = BusOperatorModel(
+        name=operator.name,
+        logo_url=operator.logo_url,
+        rating=operator.rating,
+        contact_phone=operator.contact_phone,
+        contact_email=operator.contact_email,
+        cancellation_policy=operator.cancellation_policy,
+        amenities=operator.amenities
+    )
+    db.add(new_operator)
+    db.commit()
+    return {"id": new_operator.id, "message": "Operator created"}
+
+
+@admin_router.get("/bus/routes")
+async def admin_get_routes(
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all bus routes"""
+    routes = db.query(BusRouteModel).all()
+    result = []
+    for r in routes:
+        from_city = db.query(BusCityModel).filter(BusCityModel.id == r.from_city_id).first()
+        to_city = db.query(BusCityModel).filter(BusCityModel.id == r.to_city_id).first()
+        result.append({
+            "id": r.id,
+            "from_city_id": r.from_city_id,
+            "from_city": from_city.name if from_city else "",
+            "to_city_id": r.to_city_id,
+            "to_city": to_city.name if to_city else "",
+            "distance_km": r.distance_km,
+            "is_active": r.is_active
+        })
+    return result
+
+
+@admin_router.post("/bus/routes")
+async def admin_create_route(
+    route: BusRouteCreate,
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a new bus route"""
+    new_route = BusRouteModel(
+        from_city_id=route.from_city_id,
+        to_city_id=route.to_city_id,
+        distance_km=route.distance_km,
+        estimated_duration_mins=route.estimated_duration_mins
+    )
+    db.add(new_route)
+    db.commit()
+    return {"id": new_route.id, "message": "Route created"}
+
+
+@admin_router.get("/bus/buses")
+async def admin_get_buses(
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all buses"""
+    buses = db.query(BusModel).all()
+    result = []
+    for b in buses:
+        operator = db.query(BusOperatorModel).filter(BusOperatorModel.id == b.operator_id).first()
+        result.append({
+            "id": b.id,
+            "operator_id": b.operator_id,
+            "operator_name": operator.name if operator else "",
+            "bus_number": b.bus_number,
+            "bus_type": b.bus_type,
+            "total_seats": b.total_seats,
+            "seat_layout": b.seat_layout,
+            "is_active": b.is_active
+        })
+    return result
+
+
+@admin_router.post("/bus/buses")
+async def admin_create_bus(
+    bus: BusCreate,
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a new bus with seat layout"""
+    new_bus = BusModel(
+        operator_id=bus.operator_id,
+        bus_number=bus.bus_number,
+        bus_type=bus.bus_type,
+        total_seats=bus.total_seats,
+        seat_layout=bus.seat_layout,
+        has_upper_deck=bus.has_upper_deck,
+        amenities=bus.amenities
+    )
+    db.add(new_bus)
+    db.flush()
+    
+    # Generate seats based on layout
+    if bus.seat_layout == "2+2":
+        # Standard seater bus
+        rows = (bus.total_seats + 3) // 4
+        seat_num = 1
+        for row in range(1, rows + 1):
+            for col in range(1, 5):
+                if seat_num > bus.total_seats:
+                    break
+                position = "window" if col in [1, 4] else "aisle"
+                seat = BusSeatModel(
+                    bus_id=new_bus.id,
+                    seat_number=f"{row}{chr(64+col)}",
+                    seat_type="seater",
+                    deck="lower",
+                    row_number=row,
+                    column_number=col,
+                    position=position
+                )
+                db.add(seat)
+                seat_num += 1
+    elif bus.seat_layout == "sleeper":
+        # Sleeper bus with upper and lower deck
+        lower_seats = bus.total_seats // 2
+        upper_seats = bus.total_seats - lower_seats
+        
+        # Lower deck
+        rows = (lower_seats + 1) // 2
+        for row in range(1, rows + 1):
+            for col in [1, 2]:
+                seat = BusSeatModel(
+                    bus_id=new_bus.id,
+                    seat_number=f"L{row}{col}",
+                    seat_type="sleeper",
+                    deck="lower",
+                    row_number=row,
+                    column_number=col,
+                    position="window" if col == 1 else "aisle"
+                )
+                db.add(seat)
+        
+        # Upper deck
+        rows = (upper_seats + 1) // 2
+        for row in range(1, rows + 1):
+            for col in [1, 2]:
+                seat = BusSeatModel(
+                    bus_id=new_bus.id,
+                    seat_number=f"U{row}{col}",
+                    seat_type="sleeper",
+                    deck="upper",
+                    row_number=row,
+                    column_number=col,
+                    position="window" if col == 1 else "aisle",
+                    price_modifier=50  # Upper deck slightly cheaper
+                )
+                db.add(seat)
+    else:
+        # Default 2+1 layout
+        rows = (bus.total_seats + 2) // 3
+        seat_num = 1
+        for row in range(1, rows + 1):
+            for col in range(1, 4):
+                if seat_num > bus.total_seats:
+                    break
+                position = "window" if col in [1, 3] else "aisle"
+                seat = BusSeatModel(
+                    bus_id=new_bus.id,
+                    seat_number=f"{row}{chr(64+col)}",
+                    seat_type="seater",
+                    deck="lower",
+                    row_number=row,
+                    column_number=col,
+                    position=position
+                )
+                db.add(seat)
+                seat_num += 1
+    
+    db.commit()
+    return {"id": new_bus.id, "message": "Bus created with seats"}
+
+
+@admin_router.get("/bus/schedules")
+async def admin_get_schedules(
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all bus schedules"""
+    schedules = db.query(BusScheduleModel).all()
+    result = []
+    for s in schedules:
+        bus = db.query(BusModel).filter(BusModel.id == s.bus_id).first()
+        route = db.query(BusRouteModel).filter(BusRouteModel.id == s.route_id).first()
+        from_city = db.query(BusCityModel).filter(BusCityModel.id == route.from_city_id).first() if route else None
+        to_city = db.query(BusCityModel).filter(BusCityModel.id == route.to_city_id).first() if route else None
+        operator = db.query(BusOperatorModel).filter(BusOperatorModel.id == bus.operator_id).first() if bus else None
+        
+        result.append({
+            "id": s.id,
+            "bus_id": s.bus_id,
+            "bus_number": bus.bus_number if bus else "",
+            "operator_name": operator.name if operator else "",
+            "route_id": s.route_id,
+            "from_city": from_city.name if from_city else "",
+            "to_city": to_city.name if to_city else "",
+            "departure_time": s.departure_time,
+            "arrival_time": s.arrival_time,
+            "base_price": s.base_price,
+            "is_night_bus": s.is_night_bus,
+            "is_active": s.is_active
+        })
+    return result
+
+
+@admin_router.post("/bus/schedules")
+async def admin_create_schedule(
+    schedule: BusScheduleCreate,
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a new bus schedule"""
+    new_schedule = BusScheduleModel(
+        bus_id=schedule.bus_id,
+        route_id=schedule.route_id,
+        departure_time=schedule.departure_time,
+        arrival_time=schedule.arrival_time,
+        duration_mins=schedule.duration_mins,
+        days_of_week=schedule.days_of_week,
+        base_price=schedule.base_price,
+        is_night_bus=schedule.is_night_bus,
+        next_day_arrival=schedule.next_day_arrival
+    )
+    db.add(new_schedule)
+    db.commit()
+    return {"id": new_schedule.id, "message": "Schedule created"}
+
+
+@admin_router.post("/bus/boarding-points")
+async def admin_create_boarding_point(
+    point: BusBoardingPointCreate,
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a boarding/dropping point"""
+    new_point = BusBoardingPointModel(
+        schedule_id=point.schedule_id,
+        city_id=point.city_id,
+        point_name=point.point_name,
+        address=point.address,
+        time=point.time,
+        latitude=point.latitude,
+        longitude=point.longitude,
+        point_type=point.point_type
+    )
+    db.add(new_point)
+    db.commit()
+    return {"id": new_point.id, "message": "Boarding point created"}
+
+
+@admin_router.get("/bus/bookings")
+async def admin_get_bus_bookings(
+    page: int = 1,
+    limit: int = 20,
+    status: Optional[str] = None,
+    admin: AdminModel = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all bus bookings"""
+    query = db.query(BusBookingModel)
+    if status:
+        query = query.filter(BusBookingModel.booking_status == status)
+    
+    bookings = query.order_by(BusBookingModel.created_at.desc()).offset((page-1)*limit).limit(limit).all()
+    
+    result = []
+    for b in bookings:
+        schedule = db.query(BusScheduleModel).filter(BusScheduleModel.id == b.schedule_id).first()
+        bus = db.query(BusModel).filter(BusModel.id == schedule.bus_id).first() if schedule else None
+        operator = db.query(BusOperatorModel).filter(BusOperatorModel.id == bus.operator_id).first() if bus else None
+        passengers = db.query(BusPassengerModel).filter(BusPassengerModel.booking_id == b.id).count()
+        
+        result.append({
+            "id": b.id,
+            "pnr": b.pnr,
+            "user_id": b.user_id,
+            "journey_date": b.journey_date,
+            "operator_name": operator.name if operator else "",
+            "final_amount": b.final_amount,
+            "booking_status": b.booking_status,
+            "payment_status": b.payment_status,
+            "passengers": passengers,
+            "created_at": b.created_at.isoformat() if b.created_at else None
+        })
+    
+    return result
+
+
 # Register admin router
 app.include_router(admin_router)
 
@@ -5175,6 +6409,311 @@ async def websocket_notification_endpoint(websocket: WebSocket, token: str):
     except Exception as e:
         logging.error(f"WebSocket error for user {user_id}: {e}")
         notification_manager.disconnect(websocket, user_id)
+
+
+# =============================
+# Bus Data Seed Endpoint
+# =============================
+@app.post("/api/bus/seed", tags=["bus"])
+async def seed_bus_data(db: Session = Depends(get_db)):
+    """Seed initial bus data for demo purposes"""
+    
+    # Check if data already exists
+    existing_cities = db.query(BusCityModel).count()
+    if existing_cities > 0:
+        return {"message": "Bus data already seeded", "cities": existing_cities}
+    
+    # Indian Cities with coordinates
+    cities_data = [
+        {"name": "Chennai", "state": "Tamil Nadu", "country": "India", "latitude": 13.0827, "longitude": 80.2707},
+        {"name": "Bangalore", "state": "Karnataka", "country": "India", "latitude": 12.9716, "longitude": 77.5946},
+        {"name": "Mumbai", "state": "Maharashtra", "country": "India", "latitude": 19.0760, "longitude": 72.8777},
+        {"name": "Delhi", "state": "Delhi", "country": "India", "latitude": 28.7041, "longitude": 77.1025},
+        {"name": "Hyderabad", "state": "Telangana", "country": "India", "latitude": 17.3850, "longitude": 78.4867},
+        {"name": "Pune", "state": "Maharashtra", "country": "India", "latitude": 18.5204, "longitude": 73.8567},
+        {"name": "Coimbatore", "state": "Tamil Nadu", "country": "India", "latitude": 11.0168, "longitude": 76.9558},
+        {"name": "Madurai", "state": "Tamil Nadu", "country": "India", "latitude": 9.9252, "longitude": 78.1198},
+        {"name": "Mysore", "state": "Karnataka", "country": "India", "latitude": 12.2958, "longitude": 76.6394},
+        {"name": "Trichy", "state": "Tamil Nadu", "country": "India", "latitude": 10.7905, "longitude": 78.7047},
+        {"name": "Salem", "state": "Tamil Nadu", "country": "India", "latitude": 11.6643, "longitude": 78.1460},
+        {"name": "Vijayawada", "state": "Andhra Pradesh", "country": "India", "latitude": 16.5062, "longitude": 80.6480},
+        {"name": "Tirupati", "state": "Andhra Pradesh", "country": "India", "latitude": 13.6288, "longitude": 79.4192},
+        {"name": "Kochi", "state": "Kerala", "country": "India", "latitude": 9.9312, "longitude": 76.2673},
+        {"name": "Trivandrum", "state": "Kerala", "country": "India", "latitude": 8.5241, "longitude": 76.9366},
+    ]
+    
+    # Create cities
+    city_map = {}
+    for city_data in cities_data:
+        city = BusCityModel(**city_data)
+        db.add(city)
+        db.flush()
+        city_map[city_data["name"]] = city.id
+    
+    # Bus Operators
+    operators_data = [
+        {
+            "name": "SRS Travels",
+            "logo_url": "/images/srs-logo.png",
+            "rating": 4.2,
+            "cancellation_policy": "Free cancellation up to 24 hours before departure. 50% refund within 12-24 hours.",
+            "amenities": "WiFi,Charging Point,Water Bottle,Blanket,Snacks"
+        },
+        {
+            "name": "VRL Travels",
+            "logo_url": "/images/vrl-logo.png",
+            "rating": 4.5,
+            "cancellation_policy": "90% refund if cancelled 48 hours before. 50% refund within 24-48 hours.",
+            "amenities": "WiFi,Charging Point,Water Bottle,Blanket,GPS Tracking"
+        },
+        {
+            "name": "KPN Travels",
+            "logo_url": "/images/kpn-logo.png",
+            "rating": 4.3,
+            "cancellation_policy": "Free cancellation up to 6 hours before departure.",
+            "amenities": "Charging Point,Water Bottle,Reading Light,Emergency Exit"
+        },
+        {
+            "name": "Orange Travels",
+            "logo_url": "/images/orange-logo.png",
+            "rating": 4.0,
+            "cancellation_policy": "75% refund up to 24 hours before departure.",
+            "amenities": "WiFi,Charging Point,Blanket,TV,Snacks"
+        },
+        {
+            "name": "KSRTC",
+            "logo_url": "/images/ksrtc-logo.png",
+            "rating": 3.8,
+            "cancellation_policy": "No refunds for government buses.",
+            "amenities": "Charging Point,Reading Light"
+        },
+        {
+            "name": "Parveen Travels",
+            "logo_url": "/images/parveen-logo.png",
+            "rating": 4.4,
+            "cancellation_policy": "85% refund up to 12 hours before departure.",
+            "amenities": "WiFi,Charging Point,Water Bottle,Blanket,Pillow"
+        }
+    ]
+    
+    operator_map = {}
+    for op_data in operators_data:
+        operator = BusOperatorModel(**op_data)
+        db.add(operator)
+        db.flush()
+        operator_map[op_data["name"]] = operator.id
+    
+    # Routes (one-way distances in km and time in minutes)
+    routes_data = [
+        {"from": "Chennai", "to": "Bangalore", "distance": 350, "duration": 360},
+        {"from": "Chennai", "to": "Coimbatore", "distance": 500, "duration": 480},
+        {"from": "Chennai", "to": "Madurai", "distance": 460, "duration": 450},
+        {"from": "Chennai", "to": "Trichy", "distance": 320, "duration": 300},
+        {"from": "Chennai", "to": "Hyderabad", "distance": 630, "duration": 600},
+        {"from": "Chennai", "to": "Tirupati", "distance": 135, "duration": 180},
+        {"from": "Bangalore", "to": "Chennai", "distance": 350, "duration": 360},
+        {"from": "Bangalore", "to": "Mysore", "distance": 150, "duration": 180},
+        {"from": "Bangalore", "to": "Hyderabad", "distance": 570, "duration": 540},
+        {"from": "Bangalore", "to": "Mumbai", "distance": 980, "duration": 900},
+        {"from": "Bangalore", "to": "Coimbatore", "distance": 360, "duration": 360},
+        {"from": "Bangalore", "to": "Kochi", "distance": 560, "duration": 540},
+        {"from": "Mumbai", "to": "Pune", "distance": 150, "duration": 180},
+        {"from": "Mumbai", "to": "Bangalore", "distance": 980, "duration": 900},
+        {"from": "Mumbai", "to": "Hyderabad", "distance": 710, "duration": 660},
+        {"from": "Delhi", "to": "Mumbai", "distance": 1400, "duration": 1200},
+        {"from": "Hyderabad", "to": "Bangalore", "distance": 570, "duration": 540},
+        {"from": "Hyderabad", "to": "Vijayawada", "distance": 275, "duration": 300},
+        {"from": "Coimbatore", "to": "Chennai", "distance": 500, "duration": 480},
+        {"from": "Coimbatore", "to": "Kochi", "distance": 195, "duration": 240},
+        {"from": "Kochi", "to": "Trivandrum", "distance": 200, "duration": 240},
+    ]
+    
+    route_map = {}
+    for route_data in routes_data:
+        route = BusRouteModel(
+            from_city_id=city_map[route_data["from"]],
+            to_city_id=city_map[route_data["to"]],
+            distance_km=route_data["distance"],
+            estimated_duration_mins=route_data["duration"]
+        )
+        db.add(route)
+        db.flush()
+        route_key = f"{route_data['from']}-{route_data['to']}"
+        route_map[route_key] = route.id
+    
+    # Buses and their seat configurations
+    buses_data = [
+        {"operator": "SRS Travels", "number": "TN01AB1234", "type": "Sleeper", "seats": 30, "layout": "2+1", "upper_deck": True},
+        {"operator": "SRS Travels", "number": "TN01AB1235", "type": "AC Seater", "seats": 44, "layout": "2+2", "upper_deck": False},
+        {"operator": "VRL Travels", "number": "KA01CD5678", "type": "AC Sleeper", "seats": 36, "layout": "2+1", "upper_deck": True},
+        {"operator": "VRL Travels", "number": "KA01CD5679", "type": "Multi-Axle Volvo", "seats": 40, "layout": "2+2", "upper_deck": False},
+        {"operator": "KPN Travels", "number": "TN02EF9012", "type": "Semi Sleeper", "seats": 38, "layout": "2+2", "upper_deck": False},
+        {"operator": "KPN Travels", "number": "TN02EF9013", "type": "AC Sleeper", "seats": 30, "layout": "2+1", "upper_deck": True},
+        {"operator": "Orange Travels", "number": "AP03GH3456", "type": "Volvo AC", "seats": 44, "layout": "2+2", "upper_deck": False},
+        {"operator": "Orange Travels", "number": "AP03GH3457", "type": "Sleeper", "seats": 36, "layout": "2+1", "upper_deck": True},
+        {"operator": "KSRTC", "number": "KA04IJ7890", "type": "Non AC Seater", "seats": 52, "layout": "2+3", "upper_deck": False},
+        {"operator": "KSRTC", "number": "KA04IJ7891", "type": "AC Seater", "seats": 44, "layout": "2+2", "upper_deck": False},
+        {"operator": "Parveen Travels", "number": "TN05KL1122", "type": "Multi-Axle AC Sleeper", "seats": 30, "layout": "2+1", "upper_deck": True},
+        {"operator": "Parveen Travels", "number": "TN05KL1123", "type": "Volvo B11R", "seats": 40, "layout": "2+2", "upper_deck": False},
+    ]
+    
+    # Helper function to generate seat layouts
+    def create_bus_seats(db_session, bus_id, layout, total_seats, has_upper_deck):
+        """Generate seats for a bus based on layout"""
+        seats_per_row = sum(int(x) for x in layout.split('+'))
+        decks = ["lower", "upper"] if has_upper_deck else ["lower"]
+        seats_per_deck = total_seats // len(decks)
+        rows_per_deck = max(1, seats_per_deck // seats_per_row)
+        
+        seat_num = 1
+        for deck in decks:
+            for row in range(1, rows_per_deck + 1):
+                col = 1
+                for section in layout.split('+'):
+                    for _ in range(int(section)):
+                        position = "window" if col == 1 or col == seats_per_row else "aisle"
+                        
+                        seat = BusSeatModel(
+                            bus_id=bus_id,
+                            seat_number=f"{deck[0].upper()}{seat_num}",
+                            seat_type="sleeper" if has_upper_deck else "seater",
+                            deck=deck,
+                            row_number=row,
+                            column_number=col,
+                            position=position,
+                            price_modifier=1.1 if position == "window" else 1.0,
+                            is_female_only=row == rows_per_deck and col == 1
+                        )
+                        db_session.add(seat)
+                        seat_num += 1
+                        col += 1
+    
+    bus_map = {}
+    for bus_data in buses_data:
+        bus = BusModel(
+            operator_id=operator_map[bus_data["operator"]],
+            bus_number=bus_data["number"],
+            bus_type=bus_data["type"],
+            total_seats=bus_data["seats"],
+            seat_layout=bus_data["layout"],
+            has_upper_deck=bus_data["upper_deck"]
+        )
+        db.add(bus)
+        db.flush()
+        bus_map[bus_data["number"]] = bus.id
+        
+        # Generate seats for this bus
+        create_bus_seats(db, bus.id, bus_data["layout"], bus_data["seats"], bus_data["upper_deck"])
+    
+    # Schedules with departure times
+    schedules_data = [
+        # Chennai - Bangalore (Multiple timings)
+        {"bus": "TN01AB1234", "route": "Chennai-Bangalore", "dep": "21:00", "arr": "05:00", "days": "1,2,3,4,5,6,7", "price": 850, "night": True, "next_day": True},
+        {"bus": "TN01AB1235", "route": "Chennai-Bangalore", "dep": "06:00", "arr": "12:00", "days": "1,2,3,4,5,6,7", "price": 650, "night": False, "next_day": False},
+        {"bus": "KA01CD5678", "route": "Chennai-Bangalore", "dep": "22:30", "arr": "06:30", "days": "1,2,3,4,5,6,7", "price": 1100, "night": True, "next_day": True},
+        {"bus": "KA01CD5679", "route": "Chennai-Bangalore", "dep": "08:00", "arr": "14:00", "days": "1,2,3,4,5,6,7", "price": 900, "night": False, "next_day": False},
+        # Chennai - Coimbatore
+        {"bus": "TN02EF9012", "route": "Chennai-Coimbatore", "dep": "21:30", "arr": "06:30", "days": "1,2,3,4,5,6,7", "price": 750, "night": True, "next_day": True},
+        {"bus": "TN02EF9013", "route": "Chennai-Coimbatore", "dep": "22:00", "arr": "07:00", "days": "1,2,3,4,5,6,7", "price": 950, "night": True, "next_day": True},
+        # Chennai - Hyderabad
+        {"bus": "AP03GH3456", "route": "Chennai-Hyderabad", "dep": "18:00", "arr": "06:00", "days": "1,2,3,4,5,6,7", "price": 1200, "night": True, "next_day": True},
+        {"bus": "AP03GH3457", "route": "Chennai-Hyderabad", "dep": "20:00", "arr": "08:00", "days": "1,2,3,4,5,6,7", "price": 1050, "night": True, "next_day": True},
+        # Bangalore - Chennai
+        {"bus": "TN01AB1234", "route": "Bangalore-Chennai", "dep": "21:00", "arr": "05:00", "days": "1,2,3,4,5,6,7", "price": 850, "night": True, "next_day": True},
+        {"bus": "KA01CD5679", "route": "Bangalore-Chennai", "dep": "07:00", "arr": "13:00", "days": "1,2,3,4,5,6,7", "price": 900, "night": False, "next_day": False},
+        # Bangalore - Mysore
+        {"bus": "KA04IJ7890", "route": "Bangalore-Mysore", "dep": "06:00", "arr": "09:00", "days": "1,2,3,4,5,6,7", "price": 350, "night": False, "next_day": False},
+        {"bus": "KA04IJ7891", "route": "Bangalore-Mysore", "dep": "08:00", "arr": "11:00", "days": "1,2,3,4,5,6,7", "price": 450, "night": False, "next_day": False},
+        # Bangalore - Hyderabad
+        {"bus": "KA01CD5678", "route": "Bangalore-Hyderabad", "dep": "20:00", "arr": "05:00", "days": "1,2,3,4,5,6,7", "price": 1100, "night": True, "next_day": True},
+        # Bangalore - Kochi
+        {"bus": "TN05KL1122", "route": "Bangalore-Kochi", "dep": "21:30", "arr": "06:30", "days": "1,2,3,4,5,6,7", "price": 950, "night": True, "next_day": True},
+        # Mumbai - Pune
+        {"bus": "TN05KL1123", "route": "Mumbai-Pune", "dep": "06:00", "arr": "09:00", "days": "1,2,3,4,5,6,7", "price": 450, "night": False, "next_day": False},
+        {"bus": "AP03GH3456", "route": "Mumbai-Pune", "dep": "18:00", "arr": "21:00", "days": "1,2,3,4,5,6,7", "price": 500, "night": False, "next_day": False},
+        # Hyderabad - Vijayawada
+        {"bus": "AP03GH3457", "route": "Hyderabad-Vijayawada", "dep": "06:00", "arr": "11:00", "days": "1,2,3,4,5,6,7", "price": 450, "night": False, "next_day": False},
+        # Coimbatore - Kochi
+        {"bus": "TN02EF9012", "route": "Coimbatore-Kochi", "dep": "07:00", "arr": "11:00", "days": "1,2,3,4,5,6,7", "price": 400, "night": False, "next_day": False},
+    ]
+    
+    schedule_map = {}
+    for sched_data in schedules_data:
+        if sched_data["route"] not in route_map:
+            continue
+        schedule = BusScheduleModel(
+            bus_id=bus_map[sched_data["bus"]],
+            route_id=route_map[sched_data["route"]],
+            departure_time=sched_data["dep"],
+            arrival_time=sched_data["arr"],
+            duration_mins=int(sched_data["arr"].split(':')[0]) * 60 - int(sched_data["dep"].split(':')[0]) * 60 if not sched_data["next_day"] else 480,
+            days_of_week=sched_data["days"],
+            base_price=sched_data["price"],
+            is_night_bus=sched_data["night"],
+            next_day_arrival=sched_data["next_day"]
+        )
+        db.add(schedule)
+        db.flush()
+        schedule_map[f"{sched_data['bus']}-{sched_data['route']}"] = schedule.id
+        
+        # Add boarding and dropping points for each schedule
+        route_cities = sched_data["route"].split("-")
+        from_city = route_cities[0]
+        to_city = route_cities[1]
+        
+        # Boarding points (from city)
+        boarding_points = [
+            {"city": from_city, "name": f"{from_city} Central Bus Stand", "address": f"Central Bus Station, {from_city}", "time": sched_data["dep"], "type": "boarding"},
+            {"city": from_city, "name": f"{from_city} Koyambedu" if from_city == "Chennai" else f"{from_city} Main Terminal", "address": f"Main Terminal, {from_city}", "time": add_minutes_to_time(sched_data["dep"], 15), "type": "boarding"},
+        ]
+        
+        # Dropping points (to city)
+        dropping_points = [
+            {"city": to_city, "name": f"{to_city} Central Bus Stand", "address": f"Central Bus Station, {to_city}", "time": sched_data["arr"], "type": "dropping"},
+            {"city": to_city, "name": f"{to_city} Railway Station", "address": f"Near Railway Station, {to_city}", "time": add_minutes_to_time(sched_data["arr"], -15), "type": "dropping"},
+        ]
+        
+        for bp in boarding_points:
+            point = BusBoardingPointModel(
+                schedule_id=schedule.id,
+                city_id=city_map[bp["city"]],
+                point_name=bp["name"],
+                address=bp["address"],
+                time=bp["time"],
+                point_type=bp["type"]
+            )
+            db.add(point)
+        
+        for dp in dropping_points:
+            point = BusBoardingPointModel(
+                schedule_id=schedule.id,
+                city_id=city_map[dp["city"]],
+                point_name=dp["name"],
+                address=dp["address"],
+                time=dp["time"],
+                point_type=dp["type"]
+            )
+            db.add(point)
+    
+    db.commit()
+    
+    return {
+        "message": "Bus data seeded successfully",
+        "cities": len(cities_data),
+        "operators": len(operators_data),
+        "routes": len(routes_data),
+        "buses": len(buses_data),
+        "schedules": len(schedule_map)
+    }
+
+
+def add_minutes_to_time(time_str: str, minutes: int) -> str:
+    """Add minutes to a time string (HH:MM)"""
+    hours, mins = map(int, time_str.split(':'))
+    total_mins = hours * 60 + mins + minutes
+    new_hours = (total_mins // 60) % 24
+    new_mins = total_mins % 60
+    return f"{new_hours:02d}:{new_mins:02d}"
 
 
 if __name__ == "__main__":

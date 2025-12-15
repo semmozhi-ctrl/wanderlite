@@ -26,6 +26,10 @@ import TicketVerify from "./pages/TicketVerify";
 import MyBookings from "./pages/MyBookings";
 import MyReceipts from "./pages/MyReceipts";
 import Flights from "./pages/Flights";
+import Buses from "./pages/Buses";
+import BusResults from "./pages/BusResults";
+import BusBooking from "./pages/BusBooking";
+import BusTicket from "./pages/BusTicket";
 import Assistant from "./pages/Assistant";
 import Hotels from "./pages/Hotels";
 import Restaurants from "./pages/Restaurants";
@@ -97,6 +101,10 @@ const AppContent = () => {
         <Route path="/planner" element={<TripPlanner />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/flights" element={<Flights />} />
+        <Route path="/buses" element={<Buses />} />
+        <Route path="/bus-results" element={<BusResults />} />
+        <Route path="/bus-booking" element={<ProtectedRoute><BusBooking /></ProtectedRoute>} />
+        <Route path="/bus-ticket" element={<ProtectedRoute><BusTicket /></ProtectedRoute>} />
         <Route path="/hotels" element={<Hotels />} />
         <Route path="/restaurants" element={<Restaurants />} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
