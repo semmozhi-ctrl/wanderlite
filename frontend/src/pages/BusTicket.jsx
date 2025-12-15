@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Bus,
@@ -17,10 +17,13 @@ import {
   RefreshCw,
   QrCode,
   ArrowLeft,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -41,6 +44,7 @@ const BusTicket = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
   const { bookingId, pnr } = location.state || {};
+  const ticketRef = useRef(null);
 
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +52,7 @@ const BusTicket = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showTracking, setShowTracking] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // Fetch ticket details
   useEffect(() => {
@@ -118,6 +123,51 @@ const BusTicket = () => {
   // Print ticket
   const handlePrint = () => {
     window.print();
+  };
+
+  // Download ticket as PDF
+  const handleDownloadPDF = async () => {
+    if (!ticketRef.current || !ticket) return;
+    
+    setDownloading(true);
+    try {
+      // Hide buttons before capture
+      const buttons = ticketRef.current.querySelectorAll('.print\\:hidden');
+      buttons.forEach(btn => btn.style.display = 'none');
+      
+      const canvas = await html2canvas(ticketRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      // Restore buttons
+      buttons.forEach(btn => btn.style.display = '');
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 10;
+      
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      pdf.save(`BusTicket_${ticket.pnr}.pdf`);
+    } catch (err) {
+      console.error('PDF download error:', err);
+      setError('Failed to download ticket. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   // Calculate refund (for preview)
@@ -226,7 +276,7 @@ const BusTicket = () => {
         )}
 
         {/* Ticket Card */}
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto" ref={ticketRef}>
           <div className="bg-white rounded-xl shadow-lg overflow-hidden print:shadow-none print:border">
             {/* Header */}
             <div className={`p-6 text-white ${
@@ -372,10 +422,21 @@ const BusTicket = () => {
                   Print
                 </button>
                 <button
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition flex items-center gap-2"
+                  onClick={handleDownloadPDF}
+                  disabled={downloading}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition flex items-center gap-2 disabled:opacity-50"
                 >
-                  <Download className="w-4 h-4" />
-                  Download
+                  {downloading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Download PDF
+                    </>
+                  )}
                 </button>
                 <button
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition flex items-center gap-2"
