@@ -47,6 +47,15 @@ const Hotels = () => {
   };
 
   const bookHotel = async (hotel) => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      if (window.confirm('You need to login to book hotels. Go to login page?')) {
+        navigate('/login');
+      }
+      return;
+    }
+
     if (!searchParams.check_in || !searchParams.check_out) {
       alert('Please select check-in and check-out dates');
       return;

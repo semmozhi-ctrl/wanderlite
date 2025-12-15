@@ -37,6 +37,15 @@ const Restaurants = () => {
   };
 
   const bookRestaurant = async (restaurant) => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      if (window.confirm('You need to login to reserve tables. Go to login page?')) {
+        navigate('/login');
+      }
+      return;
+    }
+
     try {
       const subtotal = restaurant.average_cost || 0;
       const taxes = parseFloat(((subtotal || 0) * 0.15).toFixed(2));

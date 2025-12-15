@@ -448,6 +448,14 @@ class TransactionRecord(BaseModel):
     service_type: Optional[str] = None
     amount: float
     currency: str
+
+
+class MockPaymentRequest(BaseModel):
+    booking_id: str
+    service_type: Optional[str] = None
+    amount: float
+    currency: str = "INR"
+    payment_method: Optional[str] = None
     payment_method: str
     status: str
     created_at: datetime
@@ -2200,21 +2208,19 @@ async def get_payment_profile_status(current_user: User = Depends(get_current_us
 # =============================
 @api_router.post("/payments/mock")
 async def mock_payment(
-    booking_id: str,
-    amount: float,
-    currency: str = "INR",
-    payment_method: Optional[str] = None,
+    request: MockPaymentRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Simulate payment processing (always succeeds for demo)"""
     
     # Get booking details
-    booking = db.query(ServiceBookingModel).filter(ServiceBookingModel.id == booking_id).first()
+    booking = db.query(ServiceBookingModel).filter(ServiceBookingModel.id == request.booking_id).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     
     # Determine payment method
+    payment_method = request.payment_method
     if not payment_method:
         # Check if user has payment profile
         profile = db.query(PaymentProfileModel).filter(PaymentProfileModel.user_id == current_user.id).first()
@@ -2226,10 +2232,10 @@ async def mock_payment(
     # Create transaction record
     transaction = TransactionModel(
         user_id=current_user.id,
-        booking_id=booking_id,
-        service_type=booking.service_type,
-        amount=amount,
-        currency=currency,
+        booking_id=request.booking_id,
+        service_type=request.service_type or booking.service_type,
+        amount=request.amount,
+        currency=request.currency,
         payment_method=payment_method,
         status="success",
         created_at=datetime.now(timezone.utc)
@@ -2243,10 +2249,10 @@ async def mock_payment(
     
     return {
         "transaction_id": transaction.id,
-        "status": "success",
+        "status": "completed",
         "payment_method": payment_method,
-        "amount": amount,
-        "currency": currency
+        "amount": request.amount,
+        "currency": request.currency
     }
 
 
