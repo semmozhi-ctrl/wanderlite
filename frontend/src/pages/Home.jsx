@@ -30,8 +30,8 @@ const Home = () => {
     },
     {
       icon: Shield,
-      title: 'Travel Checklist',
-      description: 'Never forget essentials with our comprehensive packing and preparation lists'
+      title: 'Secure Payments',
+      description: 'Safe and verified payment options with KYC protection for hassle-free bookings'
     },
     {
       icon: Sparkles,

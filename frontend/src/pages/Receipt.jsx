@@ -97,7 +97,7 @@ const Receipt = () => {
 
           <div className="flex gap-3 mt-4 flex-wrap justify-center">
             <Button variant="outline" onClick={() => navigate('/explore')}>Back to Explore</Button>
-            <Button onClick={() => navigate('/trip-history')}>View Trip History</Button>
+            <Button onClick={() => navigate('/my-bookings')}>View My Bookings</Button>
             <Button onClick={() => navigate('/')}>Go Home</Button>
           </div>
         </div>

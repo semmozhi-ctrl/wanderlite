@@ -149,10 +149,10 @@ const TicketVerify = () => {
       {/* Actions */}
       <div className="max-w-4xl mx-auto px-4 mt-6 flex gap-3 justify-center">
         <button
-          onClick={() => navigate('/trip-history')}
+          onClick={() => navigate('/my-bookings')}
           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
         >
-          View Trip History
+          View My Bookings
         </button>
         <button
           onClick={() => navigate('/explore')}

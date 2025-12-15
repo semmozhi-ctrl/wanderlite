@@ -12,7 +12,6 @@ import ChatBot from "./components/ChatBot";
 import Home from "./pages/Home";
 import Explore from "./pages/Explore";
 import TripPlanner from "./pages/TripPlanner";
-import Checklist from "./pages/ChecklistNew";
 import Contact from "./pages/Contact";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -26,7 +25,6 @@ import Ticket from "./pages/Ticket";
 import TicketVerify from "./pages/TicketVerify";
 import MyBookings from "./pages/MyBookings";
 import MyReceipts from "./pages/MyReceipts";
-import TripHistory from "./pages/TripHistory";
 import Flights from "./pages/Flights";
 import Assistant from "./pages/Assistant";
 import Hotels from "./pages/Hotels";
@@ -97,7 +95,6 @@ const AppContent = () => {
         <Route path="/destination/:destinationName/hotels/:hotelId" element={<HotelDetail />} />
         <Route path="/destination/:destinationName/restaurants/:restaurantId" element={<RestaurantDetail />} />
         <Route path="/planner" element={<TripPlanner />} />
-        <Route path="/checklist" element={<Checklist />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/flights" element={<Flights />} />
         <Route path="/hotels" element={<Hotels />} />
@@ -113,7 +110,6 @@ const AppContent = () => {
         <Route path="/ticket/verify" element={<TicketVerify />} />
         <Route path="/my-bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
         <Route path="/my-receipts" element={<ProtectedRoute><MyReceipts /></ProtectedRoute>} />
-        <Route path="/trip-history" element={<ProtectedRoute><TripHistory /></ProtectedRoute>} />
         <Route path="/assistant" element={<Assistant />} />
 
         {/* Admin Routes */}

@@ -5,8 +5,8 @@ import { Button } from '../components/ui/button';
 import axios from 'axios';
 import { 
   MapPin, Calendar, Plus, Trash2,
-  Plane, Wallet, Navigation, ListChecks, User,
-  Cloud, Droplets, Wind, TrendingUp, FileText, Receipt
+  Plane, Wallet, Navigation, User,
+  Cloud, Droplets, Wind, FileText, Receipt
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -121,8 +121,6 @@ const Dashboard = () => {
     { icon: Plane, label: 'Planner', path: '/planner', color: 'from-purple-500 to-pink-500' },
     { icon: FileText, label: 'My Bookings', path: '/my-bookings', color: 'from-indigo-500 to-blue-500' },
     { icon: Receipt, label: 'My Receipts', path: '/my-receipts', color: 'from-emerald-500 to-green-500' },
-    { icon: TrendingUp, label: 'Trip History', path: '/trip-history', color: 'from-sky-500 to-blue-600' },
-    { icon: ListChecks, label: 'Checklist', path: '/checklist', color: 'from-orange-500 to-red-500' },
     { icon: User, label: 'Profile', path: '/profile', color: 'from-green-500 to-teal-500' }
   ];
 
@@ -225,7 +223,7 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[#31A8E0]">
-                  <TrendingUp className="w-5 h-5" />
+                  <Plane className="w-5 h-5" />
                   Your Trips
                 </div>
                 <Link to="/planner">
