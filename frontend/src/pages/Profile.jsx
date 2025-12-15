@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -28,14 +28,12 @@ const Profile = () => {
   const foods = ['Veg', 'Non-Veg', 'Vegan'];
   const languages = ['English', 'Hindi', 'Tamil', 'Telugu', 'Malayalam'];
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
-
   useEffect(() => {
     const init = async () => {
       try {
-        const me = await axios.get('/api/auth/me', { headers });
+        const me = await api.get('/api/auth/me');
         setProfile({ ...profile, ...me.data });
-        const t = await axios.get('/api/trips', { headers });
+        const t = await api.get('/api/trips');
         setTrips(t.data || []);
       } catch (e) {
         console.error('Failed to load profile', e);

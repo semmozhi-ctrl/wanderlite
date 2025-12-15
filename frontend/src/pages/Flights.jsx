@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
@@ -29,7 +29,7 @@ const Flights = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post('/api/search/flights', {
+        const response = await api.post('/api/search/flights', {
         origin: searchParams.origin,
         destination: searchParams.destination,
         date: format(searchParams.date, 'yyyy-MM-dd'),
@@ -46,12 +46,16 @@ const Flights = () => {
 
   const bookFlight = async (flight) => {
     try {
-      const serviceJson = JSON.stringify(flight);
-      const response = await axios.post('/api/service/bookings', {
-        service_type: 'flight',
-        service_json: serviceJson,
-        total_price: flight.price * searchParams.travelers,
-        currency: flight.currency
+        const response = await api.post('/api/bookings/service', {
+        service_type: 'Flight',
+        destination: flight.to || 'Unknown',
+        travelers: searchParams.travelers || 1,
+        amount: flight.price * searchParams.travelers,
+        service_details: {
+          flight: flight,
+          travelDate: searchParams.date,
+          travelers: searchParams.travelers
+        }
       });
 
       // Navigate to payment with booking details

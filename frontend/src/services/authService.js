@@ -34,10 +34,12 @@ export const authService = {
     }
     
     try {
+      console.debug('[Auth] Posting to', AUTH_ENDPOINTS.LOGIN, 'with email', email);
       const response = await api.post(AUTH_ENDPOINTS.LOGIN, { email, password });
+      console.debug('[Auth] Login response:', response.data);
       
-      // Store token
-      const token = response.data.access_token;
+      // Store token (support both access_token and token field names)
+      const token = response.data.access_token || response.data.token;
       if (token) {
         localStorage.setItem(TOKEN_KEY, token);
         

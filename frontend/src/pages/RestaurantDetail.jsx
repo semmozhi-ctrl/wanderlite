@@ -15,7 +15,7 @@ import {
   CalendarIcon, Users, ChevronRight, Home, CheckCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
-import axios from 'axios';
+import api from '../services/api';
 
 const RestaurantDetail = () => {
   const { destinationName, restaurantId } = useParams();
@@ -76,11 +76,19 @@ const RestaurantDetail = () => {
         destination: destination?.name
       });
 
-      const response = await axios.post('/api/service/bookings', {
-        service_type: 'restaurant',
-        service_json: serviceJson,
-        total_price: totalPrice,
-        currency: restaurant.currency || 'INR'
+      const response = await api.post('/api/bookings/service', {
+        service_type: 'Restaurant',
+        destination: destination?.name || restaurant.location || 'Unknown',
+        travelers: bookingDetails.guests || 1,
+        amount: totalPrice,
+        service_details: {
+          restaurant: restaurant,
+          date: bookingDetails.date,
+          time: bookingDetails.time,
+          guests: bookingDetails.guests,
+          specialRequest: bookingDetails.specialRequest,
+          currency: restaurant.currency || 'INR'
+        }
       });
 
       navigate('/payment', {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -14,7 +14,7 @@ const MyReceipts = () => {
   useEffect(() => {
     const fetchReceipts = async () => {
       try {
-        const response = await axios.get('/api/receipts');
+        const response = await api.get('/api/receipts');
         setReceipts(response.data || []);
       } catch (error) {
         console.error('Failed to fetch receipts:', error);

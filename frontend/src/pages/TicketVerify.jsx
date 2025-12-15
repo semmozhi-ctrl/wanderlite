@@ -1,85 +1,169 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Card } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-
-const Field = ({ label, value }) => (
-  <div className="flex items-center justify-between">
-    <span className="text-gray-600 text-sm">{label}</span>
-    <span className="font-semibold">{value ?? '—'}</span>
-  </div>
-);
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import api from '../services/api';
+import { detectAndStoreIP } from '../services/publicUrl';
+import FlightTicket from '../components/tickets/FlightTicket';
+import HotelVoucher from '../components/tickets/HotelVoucher';
+import RestaurantBooking from '../components/tickets/RestaurantBooking';
 
 const TicketVerify = () => {
-  const { search } = useLocation();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const pnr = searchParams.get('pnr');
+  
   const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState(null);
+  const [payment, setPayment] = useState(null);
+  const [passenger, setPassenger] = useState(null);
   const [error, setError] = useState(null);
-  const [data, setData] = useState(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(search);
-    const token = params.get('token');
-    if (!token) {
-      setError('Missing token');
-      setLoading(false);
-      return;
-    }
-    (async () => {
+    const fetchTicketData = async () => {
+      // Detect and store IP address for future QR code generation
+      await detectAndStoreIP();
+
+      if (!pnr) {
+        setError('No booking reference provided');
+        setLoading(false);
+        return;
+      }
+
       try {
-        const res = await fetch(`/api/tickets/verify?token=${encodeURIComponent(token)}`);
-        if (!res.ok) throw new Error(await res.text());
-        const json = await res.json();
-        setData(json);
-      } catch (e) {
-        setError('Verification failed');
-      } finally {
+        // Fetch booking details
+        const bookingResponse = await api.get(`/api/bookings`);
+        const bookings = bookingResponse.data;
+        const foundBooking = Array.isArray(bookings) 
+          ? bookings.find(b => b.booking_ref === pnr)
+          : null;
+
+        if (!foundBooking) {
+          setError('Booking not found');
+          setLoading(false);
+          return;
+        }
+
+        setBooking(foundBooking);
+
+        // Fetch payment details
+        try {
+          const paymentResponse = await api.get(`/api/payment/receipt/${pnr}`);
+          setPayment(paymentResponse.data);
+          
+          // Create passenger object from payment data
+          setPassenger({
+            fullName: paymentResponse.data?.full_name || 'Traveler',
+            email: paymentResponse.data?.email || 'traveler@wanderlite.com',
+            phone: paymentResponse.data?.phone || '+91 XXXXX-XXXXX',
+            idType: 'Aadhaar',
+            idNumber: '1234567890',
+          });
+        } catch (err) {
+          // Payment data might not exist, use defaults
+          setPassenger({
+            fullName: 'Traveler',
+            email: 'traveler@wanderlite.com',
+            phone: '+91 XXXXX-XXXXX',
+            idType: 'Aadhaar',
+            idNumber: '1234567890',
+          });
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching ticket data:', err);
+        setError('Failed to load ticket details');
         setLoading(false);
       }
-    })();
-  }, [search]);
+    };
+
+    fetchTicketData();
+  }, [pnr]);
+
+  const renderTicket = () => {
+    if (!booking) return null;
+    
+    const serviceType = (booking.service_type || 'flight').toLowerCase();
+    
+    switch (serviceType) {
+      case 'flight':
+        return <FlightTicket booking={booking} passenger={passenger} payment={payment} />;
+      case 'hotel':
+        return <HotelVoucher booking={booking} passenger={passenger} payment={payment} />;
+      case 'restaurant':
+        return <RestaurantBooking booking={booking} passenger={passenger} payment={payment} />;
+      default:
+        return <FlightTicket booking={booking} passenger={passenger} payment={payment} />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-24 pb-16 bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 text-lg">Verifying your ticket...</p>
+          <p className="text-gray-400 text-sm mt-2">PNR: {pnr}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen pt-24 pb-16 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Verification Failed</h1>
+            <p className="text-gray-600 mb-6">{error}</p>
+            {pnr && <p className="text-sm text-gray-400 mb-6">PNR: {pnr}</p>}
+            <button
+              onClick={() => navigate('/')}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Go to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen pt-24 pb-16 bg-gradient-to-b from-gray-50 to-white">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold mb-4">Ticket Verification</h1>
-        {loading && <p>Verifying…</p>}
-        {error && <p className="text-red-600">{error}</p>}
-        {data && (
-          <Card className="p-6 space-y-4">
-            <Field label="Status" value={data.status?.toUpperCase()} />
-            <Field label="Booking Ref" value={data.booking_ref} />
-            <Field label="Service Type" value={data.service_type} />
-            {data.service && (
-              <>
-                <Field label="Airline/Name" value={data.service.airline || data.service.name} />
-                <Field label="Flight No." value={data.service.flight_number} />
-                <Field label="From → To" value={data.service.origin && data.service.destination ? `${data.service.origin} → ${data.service.destination}` : undefined} />
-                <Field label="Departure" value={data.service.departure_time} />
-              </>
-            )}
-            {data.receipt && (
-              <>
-                <Field label="Passenger" value={data.receipt.full_name} />
-                <Field label="Email" value={data.receipt.email} />
-                <Field label="Phone" value={data.receipt.phone} />
-                <Field label="Destination" value={data.receipt.destination} />
-                <Field label="Dates" value={data.receipt.start_date && data.receipt.end_date ? `${data.receipt.start_date} → ${data.receipt.end_date}` : undefined} />
-                <Field label="Travelers" value={data.receipt.travelers} />
-                <Field label="Amount" value={data.receipt.amount} />
-              </>
-            )}
-            <div className="pt-2 flex gap-3">
-              <Button variant="outline" onClick={() => navigate('/explore')}>Explore</Button>
-              <Button onClick={() => navigate('/trip-history')}>Trip History</Button>
-            </div>
-          </Card>
-        )}
+    <div className="min-h-screen pt-20 pb-16 bg-gradient-to-b from-gray-50 to-white">
+      {/* Verification Status */}
+      <div className="max-w-4xl mx-auto px-4 mb-6">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <CheckCircle2 className="w-6 h-6 text-green-600" />
+          <div>
+            <p className="text-green-800 font-semibold">Ticket Verified Successfully</p>
+            <p className="text-green-600 text-sm">PNR: {pnr} | Status: {booking?.status || 'Confirmed'}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Render the appropriate ticket */}
+      {renderTicket()}
+
+      {/* Actions */}
+      <div className="max-w-4xl mx-auto px-4 mt-6 flex gap-3 justify-center">
+        <button
+          onClick={() => navigate('/trip-history')}
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          View Trip History
+        </button>
+        <button
+          onClick={() => navigate('/explore')}
+          className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+        >
+          Explore More
+        </button>
       </div>
     </div>
   );
 };
 
 export default TicketVerify;
-
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
@@ -26,7 +26,7 @@ const Restaurants = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post('/api/search/restaurants', searchParams);
+      const response = await api.post('/api/search/restaurants', searchParams);
       setRestaurants(response.data.restaurants || []);
     } catch (error) {
       console.error('Error searching restaurants:', error);
@@ -38,13 +38,14 @@ const Restaurants = () => {
 
   const bookRestaurant = async (restaurant) => {
     try {
-      const serviceJson = JSON.stringify(restaurant);
-      
-      const response = await axios.post('/api/service/bookings', {
-        service_type: 'restaurant',
-        service_json: serviceJson,
-        total_price: restaurant.average_cost,
-        currency: restaurant.currency
+      const response = await api.post('/api/bookings/service', {
+        service_type: 'Restaurant',
+        destination: restaurant.location || restaurant.city || 'Unknown',
+        travelers: 1,
+        amount: restaurant.average_cost || 0,
+        service_details: {
+          restaurant: restaurant
+        }
       });
 
       navigate('/payment', {

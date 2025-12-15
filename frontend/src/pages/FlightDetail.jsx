@@ -9,13 +9,13 @@ import { Badge } from '../components/ui/badge';
 import { Calendar } from '../components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { 
   Plane, Clock, Users, Luggage, CalendarIcon, ChevronRight, 
   Home, User, Mail, Phone, CreditCard, MapPin, Info, CheckCircle, AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
-import axios from 'axios';
+import api from '../services/api';
 
 const FlightDetail = () => {
   const { destinationName, flightId } = useParams();
@@ -52,7 +52,7 @@ const FlightDetail = () => {
           <CardContent className="p-8 text-center">
             <Plane className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Flight Not Found</h2>
-            <p className="text-gray-600 mb-6">The flight you're looking for could not be found.</p>
+            <p className="text-gray-600 mb-6">The flight you&apos;re looking for could not be found.</p>
             <Button onClick={() => navigate('/explore')} className="w-full">
               Back to Explore
             </Button>
@@ -106,6 +106,10 @@ const FlightDetail = () => {
     setLoading(true);
     try {
       const totalPrice = flight.price * bookingDetails.travelers;
+      const baseFare = flight.price;
+      const taxes = totalPrice * 0.18; // 18% tax
+      const finalTotal = baseFare * bookingDetails.travelers + taxes;
+      
       const serviceJson = JSON.stringify({
         ...flight,
         travelers: bookingDetails.travelers,
@@ -119,13 +123,16 @@ const FlightDetail = () => {
           hour12: false
         }),
         gate: Math.floor(Math.random() * 30) + 1, // Random gate number
-        departureDate: format(new Date(flight.departure_time), 'dd MMM yyyy')
+        departureDate: format(new Date(flight.departure_time), 'dd MMM yyyy'),
+        baseFare: baseFare,
+        taxes: taxes,
+        total_price: finalTotal
       });
 
-      const response = await axios.post('/api/service/bookings', {
-        service_type: 'flight',
+      const response = await api.post('/api/bookings/service', {
+        service_type: 'Flight',
         service_json: serviceJson,
-        total_price: totalPrice,
+        total_price: finalTotal,
         currency: flight.currency || 'INR'
       });
 
@@ -133,7 +140,7 @@ const FlightDetail = () => {
         state: {
           bookingId: response.data.id,
           bookingRef: response.data.booking_ref,
-          amount: totalPrice,
+          amount: finalTotal,
           currency: flight.currency || 'INR',
           serviceType: 'Flight',
           serviceDetails: {
@@ -142,7 +149,10 @@ const FlightDetail = () => {
             travelDate: format(bookingDetails.date, 'MMM dd, yyyy'),
             class: bookingDetails.selectedClass,
             destination: destination?.name,
-            passenger: passengerDetails
+            passenger: passengerDetails,
+            baseFare: baseFare,
+            taxes: taxes,
+            total_price: finalTotal
           }
         }
       });
@@ -384,7 +394,7 @@ const FlightDetail = () => {
                 </Button>
 
                 <p className="text-xs text-center text-gray-500">
-                  You'll need to fill passenger details next
+                  You&apos;ll need to fill passenger details next
                 </p>
               </CardContent>
             </Card>
@@ -396,7 +406,9 @@ const FlightDetail = () => {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl">Passenger Details</DialogTitle>
-              <p className="text-sm text-gray-600">Please fill in the passenger information</p>
+              <DialogDescription className="text-sm text-gray-600">
+                Please fill in the passenger information
+              </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4 mt-4">

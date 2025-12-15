@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
@@ -36,7 +36,7 @@ const Hotels = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post('/api/search/hotels', searchParams);
+      const response = await api.post('/api/search/hotels', searchParams);
       setHotels(response.data.hotels || []);
     } catch (error) {
       console.error('Error searching hotels:', error);
@@ -66,11 +66,19 @@ const Hotels = () => {
         nights
       });
 
-      const response = await axios.post('/api/service/bookings', {
-        service_type: 'hotel',
-        service_json: serviceJson,
-        total_price: totalPrice,
-        currency: hotel.currency
+      const response = await api.post('/api/bookings/service', {
+        service_type: 'Hotel',
+        destination: hotel.location || hotel.city || 'Unknown',
+        travelers: searchParams.guests || 1,
+        amount: totalPrice,
+        service_details: {
+          hotel: hotel,
+          check_in: searchParams.check_in,
+          check_out: searchParams.check_out,
+          guests: searchParams.guests,
+          nights: nights,
+          currency: hotel.currency
+        }
       });
 
       navigate('/payment', {

@@ -11,7 +11,7 @@ import { CheckCircle, IndianRupee, Mail, Phone, User } from 'lucide-react';
 const Payment = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const booking = location.state?.booking;
+  let booking = location.state?.booking;
   const bookingId = location.state?.bookingId;
   const bookingRef = location.state?.bookingRef;
   const amount = location.state?.amount;
@@ -27,17 +27,32 @@ const Payment = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [fullBooking, setFullBooking] = useState(booking);
 
   const paymentAmount = useMemo(() => {
     if (amount) return amount; // Service booking amount
-    if (booking) return booking.total_price || 0; // Old trip booking amount
+    if (fullBooking) return fullBooking.amount || fullBooking.total_price || 0; // Old trip booking amount
     return 0;
-  }, [amount, booking]);
+  }, [amount, fullBooking]);
 
   useEffect(() => {
     if (!booking && !bookingId) {
       // If user navigates directly without booking, redirect to Explore
       navigate('/explore');
+      return;
+    }
+
+    // Fetch complete booking details if we only have bookingId
+    if (bookingId && !booking) {
+      const fetchBooking = async () => {
+        try {
+          const { data } = await api.get(`/api/bookings/${bookingId}`);
+          setFullBooking(data);
+        } catch (err) {
+          console.error('Failed to fetch booking details:', err);
+        }
+      };
+      fetchBooking();
     }
   }, [booking, bookingId, navigate]);
 
@@ -102,11 +117,11 @@ const Payment = () => {
         amount: Number(paymentAmount) || 0,
       }) : prune({
         // Old trip booking format
-        booking_ref: booking?.booking_ref,
-        destination: booking?.destination,
-        start_date: toIso(booking?.start_date),
-        end_date: toIso(booking?.end_date),
-        travelers: booking?.travelers,
+        booking_ref: fullBooking?.booking_ref || booking?.booking_ref,
+        destination: fullBooking?.destination || booking?.destination,
+        start_date: toIso(fullBooking?.start_date || booking?.start_date),
+        end_date: toIso(fullBooking?.end_date || booking?.end_date),
+        travelers: fullBooking?.travelers || booking?.travelers,
         full_name: form.fullName,
         email: form.email,
         phone: form.phone,
@@ -121,11 +136,18 @@ const Payment = () => {
       navigate('/receipt', { 
         state: { 
           receiptUrl: res.data.receipt_url, 
-          ticketUrl: res.data.ticket_url,  // Include ticket URL
+          ticketUrl: res.data.ticket_url,
           bookingRef: res.data.booking_ref, 
-          booking: booking || { booking_ref: bookingRef, ...serviceDetails },
+          booking: {
+            ...fullBooking,
+            ...booking,
+            booking_ref: res.data.booking_ref,
+            service_details: serviceDetails, // Ensure full service details are passed
+            service_type: serviceType
+          },
           payer: { ...form },
-          serviceType, // keep original type from state (Hotel/Restaurant/Flight)
+          payment: res.data,
+          serviceType,
           serviceDetails
         } 
       });

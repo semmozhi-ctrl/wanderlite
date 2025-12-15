@@ -108,7 +108,7 @@ const DestinationDetails = () => {
           <AlertCircle className="w-16 h-16 text-gray-400 mx-auto" />
           <h2 className="text-2xl font-bold text-gray-900">{error || 'Destination not found'}</h2>
           <p className="text-gray-600">
-            The destination you're looking for doesn't exist or couldn't be loaded.
+            The destination you&apos;re looking for doesn&apos;t exist or couldn&apos;t be loaded.
           </p>
           <div className="flex gap-3 justify-center">
             <Button onClick={() => navigate('/explore')} variant="default">

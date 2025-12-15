@@ -14,7 +14,7 @@ import {
   CalendarIcon, Users, ChevronRight, Home, CheckCircle
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
-import axios from 'axios';
+import api from '../services/api';
 
 const HotelDetail = () => {
   const { destinationName, hotelId } = useParams();
@@ -70,11 +70,20 @@ const HotelDetail = () => {
         destination: destination?.name
       });
 
-      const response = await axios.post('/api/service/bookings', {
-        service_type: 'hotel',
-        service_json: serviceJson,
-        total_price: totalPrice,
-        currency: hotel.currency || 'INR'
+      const response = await api.post('/api/bookings/service', {
+        service_type: 'Hotel',
+        destination: hotel.location || hotel.city || 'Unknown',
+        travelers: bookingDetails.guests || 1,
+        amount: totalPrice,
+        service_details: {
+          hotel: hotel,
+          check_in: format(bookingDetails.checkIn, 'yyyy-MM-dd'),
+          check_out: format(bookingDetails.checkOut, 'yyyy-MM-dd'),
+          guests: bookingDetails.guests,
+          nights: nights,
+          roomType: selectedRoom.label,
+          currency: hotel.currency
+        }
       });
 
       navigate('/payment', {

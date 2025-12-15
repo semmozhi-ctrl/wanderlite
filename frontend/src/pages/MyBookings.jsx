@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -15,7 +15,7 @@ const MyBookings = () => {
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const response = await axios.get('/api/bookings');
+        const response = await api.get('/api/bookings');
         setBookings(response.data || []);
       } catch (error) {
         console.error('Failed to fetch bookings:', error);
@@ -30,7 +30,7 @@ const MyBookings = () => {
     if (!window.confirm('Are you sure you want to cancel this booking?')) return;
     setDeleting(bookingId);
     try {
-      await axios.delete(`/api/bookings/${bookingId}`);
+      await api.delete(`/api/bookings/${bookingId}`);
       setBookings((prev) => prev.filter((b) => b.id !== bookingId));
     } catch (error) {
       console.error('Failed to cancel booking:', error);
