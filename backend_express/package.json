@@ -1,0 +1,29 @@
+{
+  "name": "wanderlite-backend-express",
+  "version": "0.1.0",
+  "description": "Express scaffold to mirror Wanderlite Python API (phase-2 scaffold).",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "NODE_ENV=development nodemon index.js",
+    "test:integration": "node test/integration.js",
+    "test:integration-local": "bash test/run_integration_locally.sh",
+    "test:integration-kyc": "node test/integration_kyc.js"
+  },
+  "scripts-dev-note": "To run migration: node scripts/migrate_csv_to_mysql.js (ensure .env points to MySQL)",
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "csv-parse": "^5.4.0",
+    "jsonwebtoken": "^9.0.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.6.0",
+    "bcryptjs": "^2.4.3",
+    "ws": "^8.13.0"
+    ,
+    "form-data": "^4.0.0"
+    ,
+    "node-fetch": "^2.6.9"
+  }
+}
